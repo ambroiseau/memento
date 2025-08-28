@@ -89,6 +89,7 @@
         "pwa:test": "node scripts/lighthouse-test.js",
         "pwa:checklist": "node scripts/pwa-checklist.js",
         "deploy": "node scripts/deploy-production.js",
+        "github:setup": "node scripts/setup-github.js",
         "twa:setup": "node scripts/setup-twa.js",
         "twa:build": "npx @bubblewrap/cli build",
         "twa:build-release": "npx @bubblewrap/cli build --release",
