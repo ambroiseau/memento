@@ -1,0 +1,3 @@
+# Netlify redirects for SPA
+# Redirect all routes to index.html except for static assets
+/*    /index.html   200

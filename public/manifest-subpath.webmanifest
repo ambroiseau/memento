@@ -1,0 +1,65 @@
+{
+  "name": "Memento App",
+  "short_name": "Memento",
+  "description": "A family photo sharing and memory app",
+  "start_url": "/app/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary",
+  "scope": "/app/",
+  "lang": "en",
+  "categories": ["social", "lifestyle", "family"],
+  "icons": [
+    {
+      "src": "/app/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app/icons/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/app/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Create Post",
+      "short_name": "New Post",
+      "description": "Create a new family post",
+      "url": "/app/?screen=create-post",
+      "icons": [
+        {
+          "src": "/app/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "View Gallery",
+      "short_name": "Gallery",
+      "description": "View family photo gallery",
+      "url": "/app/?screen=gallery",
+      "icons": [
+        {
+          "src": "/app/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
