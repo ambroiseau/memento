@@ -23,7 +23,15 @@ Après analyse, voici les différences trouvées :
 node scripts/check-db-structure.js
 ```
 
-### Étape 2 : Exécuter la migration corrigée
+### Étape 2 : Nettoyer la fonction existante (si nécessaire)
+
+Si vous obtenez l'erreur "cannot change return type of existing function", exécutez d'abord :
+
+```sql
+DROP FUNCTION IF EXISTS get_family_posts_with_images(UUID, DATE, DATE);
+```
+
+### Étape 3 : Exécuter la migration corrigée
 
 1. **Ouvrir Supabase Dashboard**
    - Allez sur https://supabase.com/dashboard
@@ -35,7 +43,9 @@ node scripts/check-db-structure.js
    - Collez-le dans l'éditeur SQL
    - Cliquez sur "Run"
 
-### Étape 3 : Vérifier la migration
+   **Alternative :** Utilisez `sql/migration-steps.sql` pour une approche étape par étape
+
+### Étape 4 : Vérifier la migration
 
 ```bash
 node scripts/test-migration.js
@@ -120,6 +130,7 @@ npm run dev
 
 - **"relation does not exist"** : La migration n'a pas été exécutée
 - **"column does not exist"** : Utilisez le fichier de migration corrigé
+- **"cannot change return type of existing function"** : Supprimez d'abord la fonction existante
 - **"permission denied"** : Vérifiez les politiques RLS
 
 ## Prochaines étapes
