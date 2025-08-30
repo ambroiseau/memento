@@ -6,10 +6,12 @@ import {
   Plus,
   Settings,
   Users,
+  FileText,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabaseApi } from "../utils/supabase-api";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { GenerateAlbumButton } from "./GenerateAlbumButton";
 import {
   Avatar,
   AvatarFallback,
@@ -409,6 +411,7 @@ export function FeedScreen({
             </div>
 
             <div className="flex items-center space-x-2">
+              <GenerateAlbumButton familyId={family.id} userId={user.id} />
               <Button
                 variant="ghost"
                 size="sm"

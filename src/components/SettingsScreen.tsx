@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Separator } from './ui/separator'
+import { PastAlbumsList } from './PastAlbumsList'
 
 export function SettingsScreen({ 
   user, 
@@ -548,6 +549,19 @@ export function SettingsScreen({
             </CardContent>
           </Card>
         )}
+
+        {/* Past Albums */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Past Albums</CardTitle>
+            <CardDescription>
+              View and download previously generated PDF albums
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PastAlbumsList familyId={family.id} />
+          </CardContent>
+        </Card>
 
         {/* Account Actions */}
         <Card>

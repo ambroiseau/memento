@@ -12,6 +12,7 @@ A modern React TypeScript application built with Vite, featuring a comprehensive
 - **ESLint & Prettier** for code quality
 - **Modern tooling** with hot reload
 - **PWA Support** with offline capabilities and app installation
+- **PDF Album Generation** with professional layouts
 
 ## 📱 PWA Features
 
@@ -68,6 +69,47 @@ npm run build
 4. **Manual** - Any hosting provider
 
 📚 **See [Production Deployment Guide](PRODUCTION-DEPLOYMENT.md) for detailed instructions**
+
+## 📄 PDF Album Generation
+
+The Memento app includes a powerful PDF album generation feature:
+
+### Features
+- **Professional A5 Layout**: Beautiful album format with cover page
+- **One Post Per Page**: Clean, readable layout for each memory
+- **Image Support**: Multiple images per post with grid layout
+- **Date Range Selection**: Generate albums for specific periods
+- **Job Tracking**: Monitor generation progress and download results
+- **Family-Specific**: Each family can generate their own albums
+
+### Setup
+
+1. **Database Migration**: Run the SQL migration to create the required table:
+   ```sql
+   -- Execute sql/create-render-jobs-table.sql
+   ```
+
+2. **PDF Renderer Service**: Set up the Node.js service:
+   ```bash
+   cd renderer
+   npm install
+   cp env.example .env
+   # Configure environment variables
+   npm run dev
+   ```
+
+3. **Environment Variables**: Add to your `.env`:
+   ```env
+   VITE_PDF_RENDERER_URL=http://localhost:3001
+   ```
+
+### Usage
+
+1. **Generate Album**: Click the "Generate Album" button in the app header
+2. **View Past Albums**: Check the "Past Albums" section in Settings
+3. **Download**: Click download buttons to open PDFs in browser
+
+📚 **See [renderer/README.md](renderer/README.md) for detailed service documentation**
 
 ## 📱 Android App (TWA)
 
