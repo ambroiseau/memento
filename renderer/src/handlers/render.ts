@@ -89,7 +89,7 @@ export async function renderHandler(
               return {
                 id: image.id,
                 url: signedUrl?.signedUrl || image.storage_path,
-                alt_text: image.alt_text,
+                alt_text: image.alt_text || '', // Handle missing alt_text
               };
             })
           );
