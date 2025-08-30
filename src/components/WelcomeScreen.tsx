@@ -1,89 +1,103 @@
-import { Camera, Heart, Shield, Users } from 'lucide-react'
-import { useState } from 'react'
-import { Button } from './ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { Camera, Heart, Shield, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from './ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
-export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handleJoinFamily, handleCreateFamily, handleSignOut }) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  
+export function WelcomeScreen({
+  user,
+  family,
+  handleSignIn,
+  handleSignUp,
+  handleJoinFamily,
+  handleCreateFamily,
+  handleSignOut,
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
   // Auth form state
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  
-  // Family form state
-  const [familyCode, setFamilyCode] = useState('')
-  const [familyName, setFamilyName] = useState('')
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
 
-  const handleAuth = async (isSignUp) => {
+  // Family form state
+  const [familyCode, setFamilyCode] = useState('');
+  const [familyName, setFamilyName] = useState('');
+
+  const handleAuth = async isSignUp => {
     if (!email || !password || (isSignUp && !name)) {
-      setError('Please fill in all fields')
-      return
+      setError('Please fill in all fields');
+      return;
     }
 
-    setIsLoading(true)
-    setError('')
+    setIsLoading(true);
+    setError('');
 
     try {
       if (isSignUp) {
-        await handleSignUp(email, password, name)
+        await handleSignUp(email, password, name);
       } else {
-        await handleSignIn(email, password)
+        await handleSignIn(email, password);
       }
     } catch (error) {
-      setError(error.message || 'Authentication failed')
+      setError(error.message || 'Authentication failed');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleJoinFamilySubmit = async () => {
     if (!familyCode.trim()) {
-      setError('Please enter a family code')
-      return
+      setError('Please enter a family code');
+      return;
     }
 
-    setIsLoading(true)
-    setError('')
+    setIsLoading(true);
+    setError('');
 
     try {
-      await handleJoinFamily(familyCode.trim())
+      await handleJoinFamily(familyCode.trim());
     } catch (error) {
-      setError(error.message || 'Failed to join family')
+      setError(error.message || 'Failed to join family');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleCreateFamilySubmit = async () => {
     if (!familyName.trim()) {
-      setError('Please enter a family name')
-      return
+      setError('Please enter a family name');
+      return;
     }
 
-    setIsLoading(true)
-    setError('')
+    setIsLoading(true);
+    setError('');
 
     try {
-      await handleCreateFamily(familyName.trim())
+      await handleCreateFamily(familyName.trim());
     } catch (error) {
-      setError(error.message || 'Failed to create family')
+      setError(error.message || 'Failed to create family');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Handle Enter key for forms
   const handleKeyDown = (event, action) => {
     if (event.key === 'Enter') {
-      event.preventDefault()
-      action()
+      event.preventDefault();
+      action();
     }
-  }
+  };
 
   // If user is authenticated but not in a family, show family options
   if (user) {
@@ -105,7 +119,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
               <TabsTrigger value="join">Join Family</TabsTrigger>
               <TabsTrigger value="create">Create Family</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="join">
               <Card>
                 <CardHeader>
@@ -121,19 +135,21 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                       id="familyCode"
                       placeholder="Enter family code (e.g., ABC123)"
                       value={familyCode}
-                      onChange={(e) => setFamilyCode(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => handleKeyDown(e, handleJoinFamilySubmit)}
+                      onChange={e =>
+                        setFamilyCode(e.target.value.toUpperCase())
+                      }
+                      onKeyDown={e => handleKeyDown(e, handleJoinFamilySubmit)}
                       className="text-center text-lg tracking-wider"
                     />
                   </div>
-                  
+
                   {error && (
                     <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
                       {error}
                     </div>
                   )}
-                  
-                  <Button 
+
+                  <Button
                     onClick={handleJoinFamilySubmit}
                     disabled={isLoading}
                     className="w-full bg-gradient-to-r from-pink-500 to-orange-500"
@@ -143,7 +159,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="create">
               <Card>
                 <CardHeader>
@@ -159,18 +175,20 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                       id="familyName"
                       placeholder="Enter family name (e.g., The Smiths)"
                       value={familyName}
-                      onChange={(e) => setFamilyName(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, handleCreateFamilySubmit)}
+                      onChange={e => setFamilyName(e.target.value)}
+                      onKeyDown={e =>
+                        handleKeyDown(e, handleCreateFamilySubmit)
+                      }
                     />
                   </div>
-                  
+
                   {error && (
                     <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
                       {error}
                     </div>
                   )}
-                  
-                  <Button 
+
+                  <Button
                     onClick={handleCreateFamilySubmit}
                     disabled={isLoading}
                     className="w-full bg-gradient-to-r from-blue-500 to-purple-500"
@@ -189,7 +207,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Authentication screen
@@ -206,7 +224,9 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
               <Camera className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h1 className="text-3xl font-[Caprasimo] text-[rgba(0,0,0,1)]">memento</h1>
+          <h1 className="text-3xl font-[Caprasimo] text-[rgba(0,0,0,1)]">
+            memento
+          </h1>
           <p className="text-gray-600 text-lg">
             Your private family photo sharing space
           </p>
@@ -234,7 +254,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="signin">
             <Card>
               <CardHeader>
@@ -249,8 +269,8 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     type="email"
                     placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(false))}
+                    onChange={e => setEmail(e.target.value)}
+                    onKeyDown={e => handleKeyDown(e, () => handleAuth(false))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -260,18 +280,18 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     type="password"
                     placeholder="Your password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(false))}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => handleKeyDown(e, () => handleAuth(false))}
                   />
                 </div>
-                
+
                 {error && (
                   <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
                     {error}
                   </div>
                 )}
-                
-                <Button 
+
+                <Button
                   onClick={() => handleAuth(false)}
                   disabled={isLoading}
                   className="w-full bg-gradient-to-r from-pink-500 to-orange-500"
@@ -281,7 +301,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="signup">
             <Card>
               <CardHeader>
@@ -295,8 +315,8 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     id="signup-name"
                     placeholder="Your full name"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(true))}
+                    onChange={e => setName(e.target.value)}
+                    onKeyDown={e => handleKeyDown(e, () => handleAuth(true))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -306,8 +326,8 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     type="email"
                     placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(true))}
+                    onChange={e => setEmail(e.target.value)}
+                    onKeyDown={e => handleKeyDown(e, () => handleAuth(true))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -317,18 +337,18 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     type="password"
                     placeholder="Create a password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(true))}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => handleKeyDown(e, () => handleAuth(true))}
                   />
                 </div>
-                
+
                 {error && (
                   <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
                     {error}
                   </div>
                 )}
-                
-                <Button 
+
+                <Button
                   onClick={() => handleAuth(true)}
                   disabled={isLoading}
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-500"
@@ -339,9 +359,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
             </Card>
           </TabsContent>
         </Tabs>
-
-
       </div>
     </div>
-  )
+  );
 }
