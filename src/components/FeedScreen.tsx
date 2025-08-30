@@ -400,7 +400,12 @@ export function FeedScreen({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Avatar className="w-10 h-10">
-                <AvatarImage src={family.avatar} />
+                <AvatarImage 
+                  src={family.avatar} 
+                  onError={(e) => {
+                    console.log('Family avatar load error, URL:', family.avatar);
+                  }}
+                />
                 <AvatarFallback className="bg-gradient-to-r from-pink-500 to-orange-500 text-white">
                   {family.name?.charAt(0) || 'F'}
                 </AvatarFallback>
@@ -466,6 +471,9 @@ export function FeedScreen({
                         <Avatar className="w-10 h-10">
                           <AvatarImage
                             src={post.author?.avatar}
+                            onError={(e) => {
+                              console.log('Avatar load error for:', post.author?.name, 'URL:', post.author?.avatar);
+                            }}
                           />
                           <AvatarFallback>
                             {post.author?.name?.charAt(0) ||
