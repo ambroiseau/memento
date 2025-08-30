@@ -182,7 +182,7 @@ export function FeedScreen({
   const formatRelativeDate = dateString => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffTime = now - date;
+    const diffTime = now.getTime() - date.getTime();
     const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
@@ -202,9 +202,9 @@ export function FeedScreen({
 
     // 7+ days - show formatted date
     const options = {
-      month: 'long',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+      month: 'long' as const,
+      day: 'numeric' as const,
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' as const : undefined,
     };
 
     const formattedDate = date.toLocaleDateString('en-US', options);
@@ -225,7 +225,7 @@ export function FeedScreen({
   const formatDate = dateString => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffTime = Math.abs(now - date);
+    const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 1) return 'Today';
@@ -233,9 +233,9 @@ export function FeedScreen({
     if (diffDays <= 7) return `${diffDays - 1} days ago`;
 
     return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+      month: 'short' as const,
+      day: 'numeric' as const,
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' as const : undefined,
     });
   };
 
