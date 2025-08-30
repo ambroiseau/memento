@@ -1,25 +1,12 @@
-import {
-  Book,
-  Check,
-  Copy,
-  Heart,
-  Plus,
-  Settings,
-  Users,
-  FileText,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { supabaseApi } from "../utils/supabase-api";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { GenerateAlbumButton } from "./GenerateAlbumButton";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "./ui/avatar";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import { Book, Check, Copy, Heart, Plus, Settings, Users } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabaseApi } from '../utils/supabase-api';
+import { ImageWithFallback } from './figma/ImageWithFallback';
+import { GenerateAlbumButton } from './GenerateAlbumButton';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Card, CardContent } from './ui/card';
 
 export function FeedScreen({
   user,
@@ -34,78 +21,96 @@ export function FeedScreen({
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [reactionsEnabled, setReactionsEnabled] = useState(true);
   const [copied, setCopied] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const POSTS_PER_PAGE = 5; // Reduced from 10 to 5 for faster initial load
-  
+
   // Intersection observer for infinite scroll
   const observerRef = useRef(null);
   const lastPostRef = useRef(null);
 
   useEffect(() => {
     if (family) {
+      console.log('Family data in FeedScreen:', family);
+      console.log('User profile in FeedScreen:', userProfile);
       loadPosts();
     }
   }, [family, userProfile]);
 
+  const loadPosts = useCallback(
+    async (isInitialLoad = true) => {
+      try {
+        if (isInitialLoad) {
+          setIsLoading(true);
+          setPage(0);
+        } else {
+          setIsLoadingMore(true);
+          setPage(prevPage => prevPage + 1);
+        }
+        setError('');
 
+        console.log('Loading posts for family:', family);
 
+        if (!family || !family.id) {
+          console.error('No family or family.id found:', family);
+          setError('No family found');
+          return;
+        }
 
+        const currentPage = isInitialLoad ? 0 : page + 1;
+                 const { posts } = await supabaseApi.getFamilyPosts(
+           family.id,
+           currentPage,
+           POSTS_PER_PAGE
+         );
+         console.log('Loaded posts:', posts);
+         console.log('Posts with avatars:', posts?.map(post => ({
+           author: post.author?.name,
+           avatar: post.author?.avatar,
+           familyAvatar: family.avatar
+         })));
 
-
-
-  const loadPosts = useCallback(async (isInitialLoad = true) => {
-    try {
-      if (isInitialLoad) {
-        setIsLoading(true);
-        setPage(0);
-      } else {
-        setIsLoadingMore(true);
-        setPage(prevPage => prevPage + 1);
+        if (isInitialLoad) {
+          setPosts(posts || []);
+          setHasMore((posts || []).length >= POSTS_PER_PAGE);
+        } else {
+          setPosts(prevPosts => [...prevPosts, ...(posts || [])]);
+          setHasMore((posts || []).length >= POSTS_PER_PAGE);
+        }
+      } catch (error) {
+        console.error('Error loading posts:', error);
+        setError(`Failed to load posts: ${error.message}`);
+      } finally {
+        if (isInitialLoad) {
+          setIsLoading(false);
+        } else {
+          setIsLoadingMore(false);
+        }
       }
-      setError("");
-      
-      console.log("Loading posts for family:", family);
-      
-      if (!family || !family.id) {
-        console.error("No family or family.id found:", family);
-        setError("No family found");
-        return;
-      }
-      
-      const currentPage = isInitialLoad ? 0 : page + 1;
-      const { posts } = await supabaseApi.getFamilyPosts(family.id, currentPage, POSTS_PER_PAGE);
-      console.log("Loaded posts:", posts);
-      
-      if (isInitialLoad) {
-        setPosts(posts || []);
-        setHasMore((posts || []).length >= POSTS_PER_PAGE);
-      } else {
-        setPosts(prevPosts => [...prevPosts, ...(posts || [])]);
-        setHasMore((posts || []).length >= POSTS_PER_PAGE);
-      }
-    } catch (error) {
-      console.error("Error loading posts:", error);
-      setError(`Failed to load posts: ${error.message}`);
-    } finally {
-      if (isInitialLoad) {
-        setIsLoading(false);
-      } else {
-        setIsLoadingMore(false);
-      }
-    }
-  }, [family, page, POSTS_PER_PAGE]);
+    },
+    [family, page, POSTS_PER_PAGE]
+  );
 
   // Set up intersection observer for infinite scroll
   useEffect(() => {
-    console.log('Setting up intersection observer, hasMore:', hasMore, 'isLoadingMore:', isLoadingMore, 'posts.length:', posts.length);
-    
+    console.log(
+      'Setting up intersection observer, hasMore:',
+      hasMore,
+      'isLoadingMore:',
+      isLoadingMore,
+      'posts.length:',
+      posts.length
+    );
+
     const observer = new IntersectionObserver(
-      (entries) => {
-        console.log('Intersection observer triggered:', entries[0].isIntersecting);
+      entries => {
+        console.log(
+          'Intersection observer triggered:',
+          entries[0].isIntersecting
+        );
         if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
           console.log('Last post visible, loading more...');
           loadPosts(false);
@@ -127,7 +132,7 @@ export function FeedScreen({
   }, [hasMore, isLoadingMore, posts.length, loadPosts]);
 
   // Function to add a new post to the top of the feed
-  const addNewPostToFeed = useCallback((newPost) => {
+  const addNewPostToFeed = useCallback(newPost => {
     setPosts(prevPosts => [newPost, ...prevPosts]);
   }, []);
 
@@ -138,32 +143,36 @@ export function FeedScreen({
     }
   }, [setAddNewPostToFeed, addNewPostToFeed]);
 
-  const handleReaction = async (postId, reaction = "heart") => {
+  const handleReaction = async (postId, reaction = 'heart') => {
     if (!reactionsEnabled) return;
 
     try {
-      const result = await supabaseApi.toggleReaction(postId, user.id, reaction);
-      
+      const result = await supabaseApi.toggleReaction(
+        postId,
+        user.id,
+        reaction
+      );
+
       // Update local state instead of reloading
-      setPosts(prevPosts => 
+      setPosts(prevPosts =>
         prevPosts.map(post => {
           if (post.id === postId) {
             const currentReactions = post.reactions || {};
             const currentUserReactions = currentReactions[reaction] || [];
             const userHasReaction = currentUserReactions.includes(user.id);
-            
+
             if (userHasReaction) {
               // Remove reaction
               const updatedReactions = {
                 ...currentReactions,
-                [reaction]: currentUserReactions.filter(id => id !== user.id)
+                [reaction]: currentUserReactions.filter(id => id !== user.id),
               };
               return { ...post, reactions: updatedReactions };
             } else {
               // Add reaction
               const updatedReactions = {
                 ...currentReactions,
-                [reaction]: [...currentUserReactions, user.id]
+                [reaction]: [...currentUserReactions, user.id],
               };
               return { ...post, reactions: updatedReactions };
             }
@@ -172,86 +181,67 @@ export function FeedScreen({
         })
       );
     } catch (error) {
-      console.log("Error toggling reaction:", error);
+      console.log('Error toggling reaction:', error);
     }
   };
 
-  const formatRelativeDate = (dateString) => {
+  const formatRelativeDate = dateString => {
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = now - date;
     const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-    const diffDays = Math.floor(
-      diffTime / (1000 * 60 * 60 * 24),
-    );
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     // Less than 24 hours
     if (diffHours < 24) {
       if (diffHours === 0) {
         const diffMinutes = Math.floor(diffTime / (1000 * 60));
-        return diffMinutes <= 1
-          ? "just now"
-          : `${diffMinutes} minutes ago`;
+        return diffMinutes <= 1 ? 'just now' : `${diffMinutes} minutes ago`;
       }
-      return diffHours === 1
-        ? "1 hour ago"
-        : `${diffHours} hours ago`;
+      return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
     }
 
     // Less than 7 days
     if (diffDays < 7) {
-      return diffDays === 1
-        ? "1 day ago"
-        : `${diffDays} days ago`;
+      return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
     }
 
     // 7+ days - show formatted date
     const options = {
-      month: "long",
-      day: "numeric",
-      year:
-        date.getFullYear() !== now.getFullYear()
-          ? "numeric"
-          : undefined,
+      month: 'long',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     };
 
-    const formattedDate = date.toLocaleDateString(
-      "en-US",
-      options,
-    );
+    const formattedDate = date.toLocaleDateString('en-US', options);
     // Add ordinal suffix to day
     const day = date.getDate();
     const suffix =
       day % 10 === 1 && day !== 11
-        ? "st"
+        ? 'st'
         : day % 10 === 2 && day !== 12
-          ? "nd"
+          ? 'nd'
           : day % 10 === 3 && day !== 13
-            ? "rd"
-            : "th";
+            ? 'rd'
+            : 'th';
 
     return formattedDate.replace(/(\d+)/, `$1${suffix}`);
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = dateString => {
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = Math.abs(now - date);
-    const diffDays = Math.ceil(
-      diffTime / (1000 * 60 * 60 * 24),
-    );
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 1) return "Today";
-    if (diffDays === 2) return "Yesterday";
+    if (diffDays === 1) return 'Today';
+    if (diffDays === 2) return 'Yesterday';
     if (diffDays <= 7) return `${diffDays - 1} days ago`;
 
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year:
-        date.getFullYear() !== now.getFullYear()
-          ? "numeric"
-          : undefined,
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     });
   };
 
@@ -261,16 +251,16 @@ export function FeedScreen({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.log("Failed to copy code:", error);
+      console.log('Failed to copy code:', error);
     }
   };
 
   // Collect all images from all posts for gallery navigation
   const getAllImages = () => {
     const allImages = [];
-    posts.forEach((post) => {
+    posts.forEach(post => {
       if (post.imageUrls && post.imageUrls.length > 0) {
-        post.imageUrls.forEach((url) => {
+        post.imageUrls.forEach(url => {
           allImages.push({
             url,
             postId: post.id,
@@ -284,11 +274,9 @@ export function FeedScreen({
     return allImages;
   };
 
-  const handleImageClick = (clickedImageUrl) => {
+  const handleImageClick = clickedImageUrl => {
     const allImages = getAllImages();
-    const startIndex = allImages.findIndex(
-      (img) => img.url === clickedImageUrl,
-    );
+    const startIndex = allImages.findIndex(img => img.url === clickedImageUrl);
     if (startIndex !== -1) {
       handleOpenGallery(allImages, startIndex);
     }
@@ -390,8 +378,6 @@ export function FeedScreen({
     );
   };
 
-
-
   return (
     <div className="min-h-screen bg-gray-50 relative">
       {/* Header */}
@@ -400,10 +386,19 @@ export function FeedScreen({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Avatar className="w-10 h-10">
-                <AvatarImage 
-                  src={family.avatar} 
-                  onError={(e) => {
-                    console.log('Family avatar load error, URL:', family.avatar);
+                <AvatarImage
+                  src={family.avatar}
+                  onError={e => {
+                    console.log(
+                      'Family avatar load error, URL:',
+                      family.avatar
+                    );
+                  }}
+                  onLoad={() => {
+                    console.log(
+                      'Family avatar loaded successfully, URL:',
+                      family.avatar
+                    );
                   }}
                 />
                 <AvatarFallback className="bg-gradient-to-r from-pink-500 to-orange-500 text-white">
@@ -451,117 +446,118 @@ export function FeedScreen({
               Welcome to your family space!
             </h3>
             <p className="text-gray-500 max-w-md mx-auto">
-              Share your first moment with your family. Tap the
-              + button to get started.
+              Share your first moment with your family. Tap the + button to get
+              started.
             </p>
           </div>
         ) : (
           <div className="space-y-6">
-                    {posts.map((post, index) => (
-                      <div 
-                        key={post.id} 
-                        ref={index === posts.length - 1 ? lastPostRef : null}
-                      >
-                        <Card className="overflow-hidden">
-                <CardContent className="p-[0px]">
-                  {/* Post Header */}
-                  <div className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="w-10 h-10">
+            {posts.map((post, index) => (
+              <div
+                key={post.id}
+                ref={index === posts.length - 1 ? lastPostRef : null}
+              >
+                <Card className="overflow-hidden">
+                  <CardContent className="p-[0px]">
+                    {/* Post Header */}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                                                  <Avatar className="w-10 h-10">
                           <AvatarImage
                             src={post.author?.avatar}
-                            onError={(e) => {
-                              console.log('Avatar load error for:', post.author?.name, 'URL:', post.author?.avatar);
+                            onError={e => {
+                              console.log(
+                                'Avatar load error for:',
+                                post.author?.name,
+                                'URL:',
+                                post.author?.avatar
+                              );
+                            }}
+                            onLoad={() => {
+                              console.log(
+                                'Avatar loaded successfully for:',
+                                post.author?.name,
+                                'URL:',
+                                post.author?.avatar
+                              );
                             }}
                           />
                           <AvatarFallback>
-                            {post.author?.name?.charAt(0) ||
-                              "U"}
+                            {post.author?.name?.charAt(0) || 'U'}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="text-sm">
-                            {post.author?.name || "Unknown"}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDate(post.createdAt)}
-                          </p>
+                          <div>
+                            <p className="text-sm">
+                              {post.author?.name || 'Unknown'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatDate(post.createdAt)}
+                            </p>
+                          </div>
                         </div>
+                        <Badge
+                          variant="outline"
+                          className="text-xs flex items-center gap-1"
+                        >
+                          <Book className="w-3 h-3" />
+                          August
+                        </Badge>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className="text-xs flex items-center gap-1"
-                      >
-                        <Book className="w-3 h-3" />
-                        August
-                      </Badge>
                     </div>
-                  </div>
 
-                  {/* Post Images */}
-                  {post.imageUrls &&
-                    post.imageUrls.length > 0 && (
+                    {/* Post Images */}
+                    {post.imageUrls && post.imageUrls.length > 0 && (
                       <div className="px-4">
                         {renderImageGrid(post.imageUrls, post)}
                       </div>
                     )}
 
-                  {/* Post Caption, Date, and Reaction - Combined */}
-                  <div className="px-4">
-                    <div
-                      className={`flex justify-between gap-3 ${!post.caption ? "items-center" : "items-start"}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        {/* Post Caption */}
-                        {post.caption && (
-                          <p className="text-sm mb-1">
-                            {post.caption}
+                    {/* Post Caption, Date, and Reaction - Combined */}
+                    <div className="px-4">
+                      <div
+                        className={`flex justify-between gap-3 ${!post.caption ? 'items-center' : 'items-start'}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          {/* Post Caption */}
+                          {post.caption && (
+                            <p className="text-sm mb-1">{post.caption}</p>
+                          )}
+
+                          {/* Relative Date */}
+                          <p className="text-xs text-gray-500">
+                            {formatRelativeDate(post.createdAt)}
                           </p>
-                        )}
-
-                        {/* Relative Date */}
-                        <p className="text-xs text-gray-500">
-                          {formatRelativeDate(post.createdAt)}
-                        </p>
-                      </div>
-
-                      {/* Reaction Button */}
-                      {reactionsEnabled && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handleReaction(post.id, "heart")
-                          }
-                          className={`flex items-center space-x-1 flex-shrink-0 ${
-                            post.reactions?.heart?.includes(
-                              user.id,
-                            )
-                              ? "text-red-500"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          <Heart
-                            className={`w-4 h-4 ${
-                              post.reactions?.heart?.includes(
-                                user.id,
-                              )
-                                ? "fill-current"
-                                : ""
-                            }`}
-                          />
-                          <span>
-                            {post.reactions?.heart?.length || 0}
-                          </span>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
                         </div>
-                      ))}
+
+                        {/* Reaction Button */}
+                        {reactionsEnabled && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReaction(post.id, 'heart')}
+                            className={`flex items-center space-x-1 flex-shrink-0 ${
+                              post.reactions?.heart?.includes(user.id)
+                                ? 'text-red-500'
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            <Heart
+                              className={`w-4 h-4 ${
+                                post.reactions?.heart?.includes(user.id)
+                                  ? 'fill-current'
+                                  : ''
+                              }`}
+                            />
+                            <span>{post.reactions?.heart?.length || 0}</span>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
           </div>
         )}
 
@@ -585,8 +581,6 @@ export function FeedScreen({
             </Button>
           </div>
         )}
-
-
       </div>
 
       {/* Family Code Info */}
@@ -618,7 +612,7 @@ export function FeedScreen({
       {/* Floating Action Button */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20">
         <Button
-          onClick={() => setCurrentScreen("create-post")}
+          onClick={() => setCurrentScreen('create-post')}
           size="lg"
           className="px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 shadow-lg hover:shadow-xl transition-all duration-200 border-0 flex items-center gap-2"
         >

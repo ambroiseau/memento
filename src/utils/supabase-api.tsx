@@ -233,6 +233,8 @@ export const supabaseApi = {
       .from('profiles')
       .select('user_id, name, avatar_url')
       .in('user_id', userIds);
+    
+    console.log('Profiles loaded:', profiles);
 
     // Get all images for these posts in one query
     const { data: allImages } = await supabase

@@ -362,8 +362,12 @@ async function generatePDF(
           const scaledHeight = imgHeight * scale;
 
           // Center the image in the allocated space
-          const offsetX = isSingleImage ? (pageWidth - scaledWidth) / 2 : imageX + (150 - scaledWidth) / 2;
-          const offsetY = isSingleImage ? (pageHeight - scaledHeight) / 2 : imageY - maxHeight + (maxHeight - scaledHeight) / 2;
+          const offsetX = isSingleImage
+            ? (pageWidth - scaledWidth) / 2
+            : imageX + (150 - scaledWidth) / 2;
+          const offsetY = isSingleImage
+            ? (pageHeight - scaledHeight) / 2
+            : imageY - maxHeight + (maxHeight - scaledHeight) / 2;
 
           currentPage.drawImage(embeddedImage, {
             x: offsetX,
@@ -374,8 +378,12 @@ async function generatePDF(
 
           // Add alt text below image
           if (image.alt_text) {
-            const altTextX = isSingleImage ? (pageWidth - font.widthOfTextAtSize(image.alt_text, 8)) / 2 : imageX;
-            const altTextY = isSingleImage ? margin + 20 : imageY - maxHeight - 15;
+            const altTextX = isSingleImage
+              ? (pageWidth - font.widthOfTextAtSize(image.alt_text, 8)) / 2
+              : imageX;
+            const altTextY = isSingleImage
+              ? margin + 20
+              : imageY - maxHeight - 15;
             currentPage.drawText(image.alt_text, {
               x: altTextX,
               y: altTextY,
@@ -396,10 +404,12 @@ async function generatePDF(
 
           // Fallback to placeholder rectangle
           const fallbackWidth = isSingleImage ? pageWidth - 2 * margin : 150;
-          const fallbackHeight = isSingleImage ? pageHeight - 2 * margin - 200 : 100;
+          const fallbackHeight = isSingleImage
+            ? pageHeight - 2 * margin - 200
+            : 100;
           const fallbackX = isSingleImage ? margin : imageX;
           const fallbackY = isSingleImage ? margin + 200 : imageY - 100;
-          
+
           currentPage.drawRectangle({
             x: fallbackX,
             y: fallbackY,
@@ -411,9 +421,11 @@ async function generatePDF(
           });
 
           const fallbackText = `[Image: ${image.alt_text || 'Photo'}]`;
-          const fallbackTextX = isSingleImage ? (pageWidth - font.widthOfTextAtSize(fallbackText, 8)) / 2 : fallbackX + 5;
+          const fallbackTextX = isSingleImage
+            ? (pageWidth - font.widthOfTextAtSize(fallbackText, 8)) / 2
+            : fallbackX + 5;
           const fallbackTextY = isSingleImage ? margin + 20 : fallbackY + 5;
-          
+
           currentPage.drawText(fallbackText, {
             x: fallbackTextX,
             y: fallbackTextY,
