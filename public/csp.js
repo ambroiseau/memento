@@ -34,6 +34,7 @@ const generateCSP = () => {
       'https://*.supabase.in',
       'wss://*.supabase.co',
       'wss://*.supabase.in',
+      'https://memento-production-5f3d.up.railway.app',
     ],
     'frame-src': ["'self'"],
     'object-src': ["'none'"],
