@@ -120,7 +120,21 @@ export const supabaseApi = {
       throw error;
     }
 
-    return { family: data?.families || null };
+    // Generate signed URL for family avatar if it's a storage path
+    let family = data?.families || null;
+    if (family?.avatar) {
+      if (family.avatar.startsWith('data:')) {
+        // Keep data URL as is
+      } else if (family.avatar.startsWith('http')) {
+        // Keep full URL as is
+      } else {
+        // It's a storage path, generate signed URL
+        const signedAvatarUrl = await getSignedImageUrl(family.avatar);
+        family = { ...family, avatar: signedAvatarUrl };
+      }
+    }
+
+    return { family };
   },
 
   createFamily: async (familyName: string, createdBy: string) => {
@@ -313,13 +327,26 @@ export const supabaseApi = {
           })
         );
 
+        // Generate signed URL for avatar if it's a storage path
+        let avatarUrl = null;
+        if (profile?.avatar_url) {
+          if (profile.avatar_url.startsWith('data:')) {
+            avatarUrl = profile.avatar_url;
+          } else if (profile.avatar_url.startsWith('http')) {
+            avatarUrl = profile.avatar_url;
+          } else {
+            // It's a storage path, generate signed URL
+            avatarUrl = await getSignedImageUrl(profile.avatar_url);
+          }
+        }
+
         return {
           ...post,
           // Map to expected FeedScreen structure
           author: profile
             ? {
                 name: profile.name,
-                avatar: profile.avatar_url,
+                avatar: avatarUrl,
               }
             : { name: 'Unknown User', avatar: null },
           createdAt: post.created_at,

@@ -32,7 +32,7 @@ export function CreatePost({
     const filesToProcess = files.slice(0, remainingSlots);
 
     filesToProcess.forEach(file => {
-      if (file.type.startsWith('image/')) {
+      if ((file as File).type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = e => {
           setSelectedImages(prev => [
@@ -44,7 +44,7 @@ export function CreatePost({
             },
           ]);
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(file as File);
       }
     });
 

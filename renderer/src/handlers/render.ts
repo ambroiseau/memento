@@ -147,7 +147,8 @@ export async function renderHandler(
     console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes');
 
     // 7. Upload PDF to Supabase Storage
-    const fileName = `${family_id}/${start}_${end}.pdf`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${family_id}/${start}_${end}_${timestamp}.pdf`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(config.storage.bucket)
       .upload(fileName, pdfBuffer, {
@@ -282,11 +283,21 @@ async function generatePDF(
 
     // Add images if any
     if (post.images && post.images.length > 0) {
+      let currentPage = page;
       let imageY = pageHeight - margin - 150;
       let imageX = margin;
+      let imagesPerPage = 0;
+      const maxImagesPerPage = 4; // Increased from 2 to 4
+      const isSingleImage = post.images.length === 1;
 
-      for (const image of post.images.slice(0, 2)) {
-        // Max 2 images per page
+      for (const image of post.images) {
+        // Create new page if we've reached the limit
+        if (imagesPerPage >= maxImagesPerPage) {
+          currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+          imageY = pageHeight - margin - 150;
+          imageX = margin;
+          imagesPerPage = 0;
+        }
         try {
           // Check if we have a valid URL
           if (!image.url) {
@@ -336,9 +347,9 @@ async function generatePDF(
             }
           }
 
-          // Calculate image dimensions to fit in 150x100 space
-          const maxWidth = 150;
-          const maxHeight = 100;
+          // Calculate image dimensions - if only one image, use full width
+          const maxWidth = isSingleImage ? pageWidth - 2 * margin : 150;
+          const maxHeight = isSingleImage ? pageHeight - 2 * margin - 200 : 100; // Leave space for text
           const imgWidth = embeddedImage.width;
           const imgHeight = embeddedImage.height;
 
@@ -351,10 +362,14 @@ async function generatePDF(
           const scaledHeight = imgHeight * scale;
 
           // Center the image in the allocated space
-          const offsetX = imageX + (maxWidth - scaledWidth) / 2;
-          const offsetY = imageY - maxHeight + (maxHeight - scaledHeight) / 2;
+          const offsetX = isSingleImage
+            ? (pageWidth - scaledWidth) / 2
+            : imageX + (150 - scaledWidth) / 2;
+          const offsetY = isSingleImage
+            ? (pageHeight - scaledHeight) / 2
+            : imageY - maxHeight + (maxHeight - scaledHeight) / 2;
 
-          page.drawImage(embeddedImage, {
+          currentPage.drawImage(embeddedImage, {
             x: offsetX,
             y: offsetY,
             width: scaledWidth,
@@ -363,9 +378,15 @@ async function generatePDF(
 
           // Add alt text below image
           if (image.alt_text) {
-            page.drawText(image.alt_text, {
-              x: imageX,
-              y: imageY - maxHeight - 15,
+            const altTextX = isSingleImage
+              ? (pageWidth - font.widthOfTextAtSize(image.alt_text, 8)) / 2
+              : imageX;
+            const altTextY = isSingleImage
+              ? margin + 20
+              : imageY - maxHeight - 15;
+            currentPage.drawText(image.alt_text, {
+              x: altTextX,
+              y: altTextY,
               size: 8,
               font: font,
               color: rgb(0.5, 0.5, 0.5),
@@ -377,23 +398,37 @@ async function generatePDF(
             imageX = margin;
             imageY -= 120;
           }
+          imagesPerPage++;
         } catch (error) {
           console.error('Error adding image:', error);
 
           // Fallback to placeholder rectangle
-          page.drawRectangle({
-            x: imageX,
-            y: imageY - 100,
-            width: 150,
-            height: 100,
+          const fallbackWidth = isSingleImage ? pageWidth - 2 * margin : 150;
+          const fallbackHeight = isSingleImage
+            ? pageHeight - 2 * margin - 200
+            : 100;
+          const fallbackX = isSingleImage ? margin : imageX;
+          const fallbackY = isSingleImage ? margin + 200 : imageY - 100;
+
+          currentPage.drawRectangle({
+            x: fallbackX,
+            y: fallbackY,
+            width: fallbackWidth,
+            height: fallbackHeight,
             borderColor: rgb(0.8, 0.8, 0.8),
             borderWidth: 1,
             color: rgb(0.95, 0.95, 0.95),
           });
 
-          page.drawText(`[Image: ${image.alt_text || 'Photo'}]`, {
-            x: imageX + 5,
-            y: imageY - 95,
+          const fallbackText = `[Image: ${image.alt_text || 'Photo'}]`;
+          const fallbackTextX = isSingleImage
+            ? (pageWidth - font.widthOfTextAtSize(fallbackText, 8)) / 2
+            : fallbackX + 5;
+          const fallbackTextY = isSingleImage ? margin + 20 : fallbackY + 5;
+
+          currentPage.drawText(fallbackText, {
+            x: fallbackTextX,
+            y: fallbackTextY,
             size: 8,
             font: font,
             color: rgb(0.5, 0.5, 0.5),
@@ -404,6 +439,7 @@ async function generatePDF(
             imageX = margin;
             imageY -= 120;
           }
+          imagesPerPage++;
         }
       }
     }
