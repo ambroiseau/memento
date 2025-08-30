@@ -406,7 +406,7 @@ export function FeedScreen({
                 </AvatarFallback>
               </Avatar>
               <div className="flex items-center">
-                <h1 className="text-xl font-bold font-[Caprasimo]">{family.name}</h1>
+                <h1 className="text-xl font-bold">{family.name}</h1>
               </div>
             </div>
 
