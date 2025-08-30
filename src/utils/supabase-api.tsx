@@ -248,8 +248,6 @@ export const supabaseApi = {
       .select('user_id, name, avatar_url')
       .in('user_id', userIds);
 
-
-
     // Get all images for these posts in one query
     const { data: allImages } = await supabase
       .from('post_images')
