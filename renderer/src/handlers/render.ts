@@ -1,9 +1,8 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
 import { createClient } from '@supabase/supabase-js';
-import puppeteer from 'puppeteer';
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { config } from '../config.js';
-import { composeHTML } from '../compose.js';
-import { RenderRequest, RenderResponse, RenderJob, Post, Family } from '../types.js';
+import { RenderRequest, RenderResponse } from '../types.js';
 
 const supabase = createClient(config.supabase.url, config.supabase.serviceKey);
 
@@ -12,10 +11,11 @@ export async function renderHandler(
   reply: FastifyReply
 ): Promise<RenderResponse> {
   const { family_id, start, end, requested_by } = request.body;
+  let job: any = null; // Declare job variable at function scope
 
   try {
     // 1. Insert render job with status 'running'
-    const { data: job, error: jobError } = await supabase
+    const { data: jobData, error: jobError } = await supabase
       .from('render_jobs')
       .insert({
         family_id,
@@ -36,6 +36,8 @@ export async function renderHandler(
       });
     }
 
+    job = jobData; // Assign to the function-scoped variable
+
     // 2. Fetch family data
     const { data: family, error: familyError } = await supabase
       .from('families')
@@ -52,12 +54,14 @@ export async function renderHandler(
     }
 
     // 3. Fetch posts and images for the period
-    const { data: posts, error: postsError } = await supabase
-      .rpc('get_family_posts_with_images', {
+    const { data: posts, error: postsError } = await supabase.rpc(
+      'get_family_posts_with_images',
+      {
         p_family_id: family_id,
         p_start_date: start,
         p_end_date: end,
-      });
+      }
+    );
 
     if (postsError) {
       console.error('Error fetching posts:', postsError);
@@ -69,7 +73,11 @@ export async function renderHandler(
     }
 
     if (!posts || posts.length === 0) {
-      await updateJobStatus(job.id, 'failed', 'No posts found for the specified period');
+      await updateJobStatus(
+        job.id,
+        'failed',
+        'No posts found for the specified period'
+      );
       return reply.status(400).send({
         ok: false,
         error: 'No posts found for the specified period',
@@ -82,14 +90,43 @@ export async function renderHandler(
         if (post.images && post.images.length > 0) {
           const imagesWithUrls = await Promise.all(
             post.images.map(async (image: any) => {
-              const { data: signedUrl } = await supabase.storage
-                .from('post-images')
-                .createSignedUrl(image.storage_path, 3600); // 1 hour expiry
+              console.log('Processing image:', image.storage_path);
+
+              // Check if image is base64
+              if (
+                image.storage_path &&
+                image.storage_path.startsWith('data:image')
+              ) {
+                console.log('Found base64 image, using directly');
+                return {
+                  id: image.id,
+                  url: image.storage_path, // Use base64 data directly
+                  alt_text: image.alt_text || '',
+                };
+              }
+
+              // Try to generate signed URL for storage path
+              const { data: signedUrl, error: urlError } =
+                await supabase.storage
+                  .from('post-images')
+                  .createSignedUrl(image.storage_path, 3600); // 1 hour expiry
+
+              if (urlError) {
+                console.error('Error creating signed URL:', urlError);
+                return {
+                  id: image.id,
+                  url: null, // Will be handled in generatePDF
+                  alt_text: image.alt_text || '',
+                };
+              }
+
+              const finalUrl = signedUrl?.signedUrl;
+              console.log('Generated signed URL:', finalUrl);
 
               return {
                 id: image.id,
-                url: signedUrl?.signedUrl || image.storage_path,
-                alt_text: image.alt_text || '', // Handle missing alt_text
+                url: finalUrl,
+                alt_text: image.alt_text || '',
               };
             })
           );
@@ -99,11 +136,15 @@ export async function renderHandler(
       })
     );
 
-    // 5. Compose HTML
-    const html = composeHTML(postsWithSignedUrls, family, start, end);
-
-    // 6. Generate PDF using Puppeteer
-    const pdfBuffer = await generatePDF(html);
+    // 5. Generate PDF using pdf-lib
+    console.log('Generating PDF with pdf-lib...');
+    const pdfBuffer = await generatePDF(
+      postsWithSignedUrls,
+      family,
+      start,
+      end
+    );
+    console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes');
 
     // 7. Upload PDF to Supabase Storage
     const fileName = `${family_id}/${start}_${end}.pdf`;
@@ -139,9 +180,22 @@ export async function renderHandler(
       pdf_url: pdfUrl,
       page_count: pageCount,
     });
-
   } catch (error) {
     console.error('Error in render handler:', error);
+
+    // Update job status to failed if we have a job ID
+    if (job?.id) {
+      try {
+        await updateJobStatus(
+          job.id,
+          'failed',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      } catch (updateError) {
+        console.error('Failed to update job status:', updateError);
+      }
+    }
+
     return reply.status(500).send({
       ok: false,
       error: 'Internal server error',
@@ -149,31 +203,262 @@ export async function renderHandler(
   }
 }
 
-async function generatePDF(html: string): Promise<Buffer> {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+async function generatePDF(
+  posts: any[],
+  family: any,
+  start: string,
+  end: string
+): Promise<Buffer> {
+  // Create a new PDF document
+  const pdfDoc = await PDFDocument.create();
+
+  // Embed the standard font
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // A5 page size (420 x 595 points)
+  const pageWidth = 420;
+  const pageHeight = 595;
+  const margin = 50;
+  const contentWidth = pageWidth - margin * 2;
+  const contentHeight = pageHeight - margin * 2;
+
+  // Add cover page
+  const coverPage = pdfDoc.addPage([pageWidth, pageHeight]);
+  const coverText = `${family.name} - Album Photos`;
+  const coverSubtext = `${start} - ${end}`;
+
+  // Center the title
+  const titleWidth = boldFont.widthOfTextAtSize(coverText, 24);
+  const subtitleWidth = font.widthOfTextAtSize(coverSubtext, 16);
+
+  coverPage.drawText(coverText, {
+    x: (pageWidth - titleWidth) / 2,
+    y: pageHeight - 200,
+    size: 24,
+    font: boldFont,
+    color: rgb(0, 0, 0),
   });
 
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    
-    const pdf = await page.pdf({
-      format: 'A5',
-      printBackground: true,
-      margin: {
-        top: '0',
-        right: '0',
-        bottom: '0',
-        left: '0',
-      },
+  coverPage.drawText(coverSubtext, {
+    x: (pageWidth - subtitleWidth) / 2,
+    y: pageHeight - 240,
+    size: 16,
+    font: font,
+    color: rgb(0.5, 0.5, 0.5),
+  });
+
+  // Add pages for each post
+  for (const post of posts) {
+    const page = pdfDoc.addPage([pageWidth, pageHeight]);
+
+    // Post date
+    const postDate = new Date(post.created_at).toLocaleDateString('fr-FR');
+    page.drawText(postDate, {
+      x: margin,
+      y: pageHeight - margin - 20,
+      size: 12,
+      font: boldFont,
+      color: rgb(0, 0, 0),
     });
 
-    return Buffer.from(pdf);
-  } finally {
-    await browser.close();
+    // Post content
+    if (post.content_text) {
+      const lines = wrapText(post.content_text, font, 12, contentWidth);
+      let yOffset = pageHeight - margin - 50;
+
+      for (const line of lines) {
+        if (yOffset < margin + 100) break; // Leave space for images
+        page.drawText(line, {
+          x: margin,
+          y: yOffset,
+          size: 12,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
+        yOffset -= 16;
+      }
+    }
+
+    // Add images if any
+    if (post.images && post.images.length > 0) {
+      let imageY = pageHeight - margin - 150;
+      let imageX = margin;
+
+      for (const image of post.images.slice(0, 2)) {
+        // Max 2 images per page
+        try {
+          // Check if we have a valid URL
+          if (!image.url) {
+            console.log('No URL for image, using placeholder');
+            throw new Error('No image URL available');
+          }
+
+          console.log(
+            'Processing image URL:',
+            image.url.substring(0, 50) + '...'
+          );
+
+          let imageBuffer;
+
+          // Handle base64 images
+          if (image.url.startsWith('data:image')) {
+            console.log('Processing base64 image');
+            const base64Data = image.url.split(',')[1];
+            imageBuffer = Buffer.from(base64Data, 'base64');
+          } else {
+            // Handle regular URLs
+            console.log('Fetching image from URL');
+            const imageResponse = await fetch(image.url);
+            if (!imageResponse.ok) {
+              throw new Error(
+                `Failed to fetch image: ${imageResponse.statusText}`
+              );
+            }
+            imageBuffer = await imageResponse.arrayBuffer();
+          }
+          let embeddedImage;
+
+          // Try to embed as PNG first, then JPEG
+          try {
+            embeddedImage = await pdfDoc.embedPng(imageBuffer);
+          } catch (pngError) {
+            try {
+              embeddedImage = await pdfDoc.embedJpg(imageBuffer);
+            } catch (jpgError) {
+              console.error(
+                'Failed to embed image as PNG or JPEG:',
+                pngError,
+                jpgError
+              );
+              // Fallback to placeholder
+              throw new Error('Unsupported image format');
+            }
+          }
+
+          // Calculate image dimensions to fit in 150x100 space
+          const maxWidth = 150;
+          const maxHeight = 100;
+          const imgWidth = embeddedImage.width;
+          const imgHeight = embeddedImage.height;
+
+          // Calculate scaling to fit within bounds while maintaining aspect ratio
+          const scaleX = maxWidth / imgWidth;
+          const scaleY = maxHeight / imgHeight;
+          const scale = Math.min(scaleX, scaleY);
+
+          const scaledWidth = imgWidth * scale;
+          const scaledHeight = imgHeight * scale;
+
+          // Center the image in the allocated space
+          const offsetX = imageX + (maxWidth - scaledWidth) / 2;
+          const offsetY = imageY - maxHeight + (maxHeight - scaledHeight) / 2;
+
+          page.drawImage(embeddedImage, {
+            x: offsetX,
+            y: offsetY,
+            width: scaledWidth,
+            height: scaledHeight,
+          });
+
+          // Add alt text below image
+          if (image.alt_text) {
+            page.drawText(image.alt_text, {
+              x: imageX,
+              y: imageY - maxHeight - 15,
+              size: 8,
+              font: font,
+              color: rgb(0.5, 0.5, 0.5),
+            });
+          }
+
+          imageX += 160;
+          if (imageX > pageWidth - margin - 150) {
+            imageX = margin;
+            imageY -= 120;
+          }
+        } catch (error) {
+          console.error('Error adding image:', error);
+
+          // Fallback to placeholder rectangle
+          page.drawRectangle({
+            x: imageX,
+            y: imageY - 100,
+            width: 150,
+            height: 100,
+            borderColor: rgb(0.8, 0.8, 0.8),
+            borderWidth: 1,
+            color: rgb(0.95, 0.95, 0.95),
+          });
+
+          page.drawText(`[Image: ${image.alt_text || 'Photo'}]`, {
+            x: imageX + 5,
+            y: imageY - 95,
+            size: 8,
+            font: font,
+            color: rgb(0.5, 0.5, 0.5),
+          });
+
+          imageX += 160;
+          if (imageX > pageWidth - margin - 150) {
+            imageX = margin;
+            imageY -= 120;
+          }
+        }
+      }
+    }
   }
+
+  // Add footer page
+  const footerPage = pdfDoc.addPage([pageWidth, pageHeight]);
+  const footerText = 'Généré par Memento';
+  const footerWidth = font.widthOfTextAtSize(footerText, 12);
+
+  footerPage.drawText(footerText, {
+    x: (pageWidth - footerWidth) / 2,
+    y: margin,
+    size: 12,
+    font: font,
+    color: rgb(0.5, 0.5, 0.5),
+  });
+
+  // Serialize the PDF to bytes
+  const pdfBytes = await pdfDoc.save();
+  return Buffer.from(pdfBytes);
+}
+
+// Helper function to wrap text
+function wrapText(
+  text: string,
+  font: any,
+  fontSize: number,
+  maxWidth: number
+): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+    if (testWidth <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        lines.push(word);
+      }
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
 }
 
 async function updateJobStatus(
@@ -190,9 +475,15 @@ async function updateJobStatus(
 
   if (pdfUrl) updateData.pdf_url = pdfUrl;
   if (pageCount) updateData.page_count = pageCount;
+  if (error) updateData.error_message = error;
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('render_jobs')
     .update(updateData)
     .eq('id', jobId);
+
+  if (updateError) {
+    console.error('Failed to update job status:', updateError);
+    throw updateError;
+  }
 }

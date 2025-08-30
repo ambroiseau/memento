@@ -48,6 +48,7 @@
         "recharts": "^2.15.2",
         "sonner": "^2.0.3",
         "tailwind-merge": "^2.2.0",
+        "uuid": "^11.1.0",
         "vaul": "^1.1.2"
     },
     "devDependencies": {
@@ -81,14 +82,13 @@
         "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
         "type-check": "tsc --noEmit",
         "bump-sw": "node scripts/bump-sw-version.js",
-        "deploy": "npm run bump-sw && npm run build",
+        "deploy": "node scripts/deploy-production.js",
         "setup-env": "node scripts/setup-env.js",
         "env:validate": "node -e \"import('./src/utils/config.tsx').then(m => m.validateEnvironment())\"",
         "env:check": "node -e \"console.log('Environment variables:'); Object.keys(process.env).filter(k => k.startsWith('VITE_')).forEach(k => console.log(k + '=' + process.env[k]))\"",
         "pwa:generate-icons": "node scripts/generate-icons.js",
         "pwa:test": "node scripts/lighthouse-test.js",
         "pwa:checklist": "node scripts/pwa-checklist.js",
-        "deploy": "node scripts/deploy-production.js",
         "github:setup": "node scripts/setup-github.js",
         "twa:setup": "node scripts/setup-twa.js",
         "twa:build": "npx @bubblewrap/cli build",
@@ -98,6 +98,6 @@
         "ios:copy": "npx cap copy ios",
         "ios:open": "npx cap open ios",
         "ios:run": "npx cap run ios",
-    "pdf:start": "node scripts/start-pdf-renderer.js"
+        "pdf:start": "node scripts/start-pdf-simple.js"
     }
 }

@@ -1,161 +1,174 @@
-import { ArrowLeft, Camera, Image as ImageIcon, X } from 'lucide-react'
-import { useRef, useState } from 'react'
-import { supabaseApi } from '../utils/supabase-api'
-import { supabase } from '../utils/supabase/client'
-import { ImageWithFallback } from './figma/ImageWithFallback'
-import { Button } from './ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
+import { ArrowLeft, Camera, Image as ImageIcon, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { getSignedImageUrl } from '../utils/signedUrls';
+import { supabaseApi } from '../utils/supabase-api';
+import { supabase } from '../utils/supabase/client';
+import { ImageWithFallback } from './figma/ImageWithFallback';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 
-export function CreatePost({ 
-  user, 
+export function CreatePost({
+  user,
   userProfile,
-  family, 
-  accessToken, 
+  family,
+  accessToken,
   setCurrentScreen,
-  addNewPostToFeed
+  addNewPostToFeed,
 }) {
-  const [caption, setCaption] = useState('')
-  const [selectedImages, setSelectedImages] = useState([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [isPosting, setIsPosting] = useState(false)
-  const [error, setError] = useState('')
-  const fileInputRef = useRef(null)
+  const [caption, setCaption] = useState('');
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
 
-  const handleImageSelect = (event) => {
-    const files = Array.from(event.target.files)
-    
+  const handleImageSelect = event => {
+    const files = Array.from(event.target.files);
+
     // Limit to 4 images max
-    const remainingSlots = 4 - selectedImages.length
-    const filesToProcess = files.slice(0, remainingSlots)
-    
+    const remainingSlots = 4 - selectedImages.length;
+    const filesToProcess = files.slice(0, remainingSlots);
+
     filesToProcess.forEach(file => {
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          setSelectedImages(prev => [...prev, {
-            file,
-            preview: e.target.result,
-            id: Math.random().toString(36).substr(2, 9)
-          }])
-        }
-        reader.readAsDataURL(file)
+        const reader = new FileReader();
+        reader.onload = e => {
+          setSelectedImages(prev => [
+            ...prev,
+            {
+              file,
+              preview: e.target.result,
+              id: Math.random().toString(36).substr(2, 9),
+            },
+          ]);
+        };
+        reader.readAsDataURL(file);
       }
-    })
-    
+    });
+
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = '';
     }
-  }
+  };
 
-  const removeImage = (imageId) => {
-    setSelectedImages(prev => prev.filter(img => img.id !== imageId))
-  }
+  const removeImage = imageId => {
+    setSelectedImages(prev => prev.filter(img => img.id !== imageId));
+  };
 
   const uploadImages = async () => {
-    const uploadedImages = []
+    const uploadedImages = [];
 
     for (let i = 0; i < selectedImages.length; i++) {
-      const image = selectedImages[i]
+      const image = selectedImages[i];
       try {
-        const result = await supabaseApi.uploadImage(image.file, user.id)
-        uploadedImages.push(result.imageId)
+        const result = await supabaseApi.uploadImage(image.file, user.id);
+        uploadedImages.push(result.imageId);
         // Store the uploaded URL in the selectedImage for later use
-        selectedImages[i].uploadedUrl = result.url
+        selectedImages[i].uploadedUrl = result.url;
       } catch (error) {
-        console.error('Error uploading image:', error)
-        throw new Error('Failed to upload image')
+        console.error('Error uploading image:', error);
+        throw new Error('Failed to upload image');
       }
     }
-    
-    return uploadedImages
-  }
+
+    return uploadedImages;
+  };
 
   const handlePost = async () => {
     if (!caption.trim() && selectedImages.length === 0) {
-      setError('Please add a caption or select at least one image')
-      return
+      setError('Please add a caption or select at least one image');
+      return;
     }
 
-    setIsPosting(true)
-    setError('')
+    setIsPosting(true);
+    setError('');
 
     try {
       // Upload images first
-      setIsUploading(true)
-      const imageIds = await uploadImages()
-      setIsUploading(false)
+      setIsUploading(true);
+      const imageIds = await uploadImages();
+      setIsUploading(false);
 
       // Create the post in the database
-      const now = new Date()
-      const monthTag = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-      
+      const now = new Date();
+      const monthTag = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
       const postData = {
         family_id: family.id,
         user_id: user.id,
         content_text: caption.trim(),
-        month_tag: monthTag
-      }
-      
-      const { post } = await supabaseApi.createPost(postData)
-      
+        month_tag: monthTag,
+      };
+
+      const { post } = await supabaseApi.createPost(postData);
+
       // If we have images, create post_images records
       if (imageIds.length > 0) {
         for (let i = 0; i < imageIds.length; i++) {
-          const imageId = imageIds[i]
-          const selectedImage = selectedImages[i]
-          
-          await supabase
-            .from('post_images')
-            .insert({
-              post_id: post.id,
-              storage_path: selectedImage.uploadedUrl || imageId, // Use the actual URL from upload
-              idx: i
-            })
+          const imageId = imageIds[i];
+          const selectedImage = selectedImages[i];
+
+          await supabase.from('post_images').insert({
+            post_id: post.id,
+            storage_path: selectedImage.uploadedUrl, // Use the storage path from upload
+            idx: i,
+          });
         }
       }
-      
+
+      // Generate signed URLs for the new post images
+      const signedImageUrls = await Promise.all(
+        selectedImages.map(async img => {
+          if (img.uploadedUrl && !img.uploadedUrl.startsWith('data:')) {
+            const signedUrl = await getSignedImageUrl(img.uploadedUrl);
+            return signedUrl || img.uploadedUrl;
+          }
+          return img.uploadedUrl;
+        })
+      );
+
       // Create the new post object with all the data
       const newPost = {
         ...post,
-        author: { 
-          name: userProfile?.name || user?.email || 'Unknown User', 
-          avatar: userProfile?.avatar_url || null 
+        author: {
+          name: userProfile?.name || user?.email || 'Unknown User',
+          avatar: userProfile?.avatar_url || null,
         },
         createdAt: post.created_at,
         caption: post.content_text,
-        imageUrls: selectedImages.map(img => img.uploadedUrl || img.preview),
+        imageUrls: signedImageUrls,
         reactions: {},
         profiles: userProfile || { name: 'Unknown User', avatar_url: null },
         post_images: selectedImages.map((img, idx) => ({
           post_id: post.id,
-          storage_path: img.uploadedUrl || img.preview,
-          idx: idx
-        }))
-      }
-      
+          storage_path: img.uploadedUrl,
+          idx: idx,
+        })),
+      };
+
       // Add the new post to the feed
       if (addNewPostToFeed) {
-        addNewPostToFeed(newPost)
+        addNewPostToFeed(newPost);
       }
-      
+
       // Success! Go back to feed and scroll to top
-      setCurrentScreen('feed')
-      
+      setCurrentScreen('feed');
+
       // Scroll to top after a short delay to ensure the feed is rendered
       setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      }, 100)
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     } catch (error) {
-      console.log('Error creating post:', error)
-      setError(error.message || 'Failed to create post')
+      console.log('Error creating post:', error);
+      setError(error.message || 'Failed to create post');
     } finally {
-      setIsPosting(false)
-      setIsUploading(false)
+      setIsPosting(false);
+      setIsUploading(false);
     }
-  }
+  };
 
   return (
     <div className="fixed inset-0 bg-white z-50 overflow-y-auto">
@@ -173,10 +186,14 @@ export function CreatePost({
               </Button>
               <h1 className="text-lg">New Post</h1>
             </div>
-            
+
             <Button
               onClick={handlePost}
-              disabled={isPosting || isUploading || (!caption.trim() && selectedImages.length === 0)}
+              disabled={
+                isPosting ||
+                isUploading ||
+                (!caption.trim() && selectedImages.length === 0)
+              }
               size="sm"
               className="bg-gradient-to-r from-pink-500 to-orange-500"
             >
@@ -199,11 +216,11 @@ export function CreatePost({
             {/* Image Selection */}
             <div className="space-y-4">
               <Label>Photos (up to 4)</Label>
-              
+
               {/* Selected Images */}
               {selectedImages.length > 0 && (
                 <div className="grid grid-cols-2 gap-3">
-                  {selectedImages.map((image) => (
+                  {selectedImages.map(image => (
                     <div key={image.id} className="relative group">
                       <ImageWithFallback
                         src={image.preview}
@@ -260,7 +277,7 @@ export function CreatePost({
                 id="caption"
                 placeholder="Share what's happening..."
                 value={caption}
-                onChange={(e) => setCaption(e.target.value)}
+                onChange={e => setCaption(e.target.value)}
                 rows={4}
                 className="resize-none"
               />
@@ -278,7 +295,9 @@ export function CreatePost({
               <div className="bg-blue-50 p-4 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                  <span className="text-blue-700 text-sm">Uploading images...</span>
+                  <span className="text-blue-700 text-sm">
+                    Uploading images...
+                  </span>
                 </div>
               </div>
             )}
@@ -290,12 +309,13 @@ export function CreatePost({
                 <span>Family Code: {family.code}</span>
               </div>
               <p className="mt-2 text-xs">
-                This post will be tagged with the current month for the family magazine.
+                This post will be tagged with the current month for the family
+                magazine.
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
     </div>
-  )
+  );
 }
