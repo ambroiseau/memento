@@ -34,8 +34,6 @@ export function FeedScreen({
 
   useEffect(() => {
     if (family) {
-      console.log('Family data in FeedScreen:', family);
-      console.log('User profile in FeedScreen:', userProfile);
       loadPosts();
     }
   }, [family, userProfile]);
@@ -67,11 +65,7 @@ export function FeedScreen({
            POSTS_PER_PAGE
          );
          console.log('Loaded posts:', posts);
-         console.log('Posts with avatars:', posts?.map(post => ({
-           author: post.author?.name,
-           avatar: post.author?.avatar,
-           familyAvatar: family.avatar
-         })));
+
 
         if (isInitialLoad) {
           setPosts(posts || []);
@@ -388,18 +382,6 @@ export function FeedScreen({
               <Avatar className="w-10 h-10">
                 <AvatarImage
                   src={family.avatar}
-                  onError={e => {
-                    console.log(
-                      'Family avatar load error, URL:',
-                      family.avatar
-                    );
-                  }}
-                  onLoad={() => {
-                    console.log(
-                      'Family avatar loaded successfully, URL:',
-                      family.avatar
-                    );
-                  }}
                 />
                 <AvatarFallback className="bg-gradient-to-r from-pink-500 to-orange-500 text-white">
                   {family.name?.charAt(0) || 'F'}
@@ -466,22 +448,6 @@ export function FeedScreen({
                                                   <Avatar className="w-10 h-10">
                           <AvatarImage
                             src={post.author?.avatar}
-                            onError={e => {
-                              console.log(
-                                'Avatar load error for:',
-                                post.author?.name,
-                                'URL:',
-                                post.author?.avatar
-                              );
-                            }}
-                            onLoad={() => {
-                              console.log(
-                                'Avatar loaded successfully for:',
-                                post.author?.name,
-                                'URL:',
-                                post.author?.avatar
-                              );
-                            }}
                           />
                           <AvatarFallback>
                             {post.author?.name?.charAt(0) || 'U'}
