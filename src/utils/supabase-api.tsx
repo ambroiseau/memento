@@ -284,6 +284,35 @@ export const supabaseApi = {
           reactionsObj[reaction.emoji].push(reaction.user_id);
         });
 
+        // Generate signed URLs for images
+        const imageUrls = await Promise.all(
+          images.map(async (img: any) => {
+            // Convert storage path to URL
+            if (img.storage_path) {
+              // Check if it's a base64 data URL
+              if (img.storage_path.startsWith('data:')) {
+                return img.storage_path;
+              }
+
+              // Check if it's already a full URL
+              if (img.storage_path.startsWith('http')) {
+                return img.storage_path;
+              }
+
+              // Generate signed URL for migrated images
+              const signedUrl = await getSignedImageUrl(img.storage_path);
+              return (
+                signedUrl ||
+                `https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=📸+Image+Not+Available`
+              );
+            }
+            return (
+              img.image_url ||
+              `https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=📸+Image+Not+Available`
+            );
+          })
+        );
+
         return {
           ...post,
           // Map to expected FeedScreen structure
@@ -295,33 +324,7 @@ export const supabaseApi = {
             : { name: 'Unknown User', avatar: null },
           createdAt: post.created_at,
           caption: post.content_text,
-          imageUrls: await Promise.all(
-            images.map(async (img: any) => {
-              // Convert storage path to URL
-              if (img.storage_path) {
-                // Check if it's a base64 data URL
-                if (img.storage_path.startsWith('data:')) {
-                  return img.storage_path;
-                }
-
-                // Check if it's already a full URL
-                if (img.storage_path.startsWith('http')) {
-                  return img.storage_path;
-                }
-
-                // Generate signed URL for migrated images
-                const signedUrl = await getSignedImageUrl(img.storage_path);
-                return (
-                  signedUrl ||
-                  `https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=📸+Image+Not+Available`
-                );
-              }
-              return (
-                img.image_url ||
-                `https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=📸+Image+Not+Available`
-              );
-            })
-          ),
+          imageUrls: imageUrls,
           reactions: reactionsObj,
           // Keep original fields for compatibility
           profiles: profile || { name: 'Unknown User', avatar_url: null },
