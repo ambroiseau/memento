@@ -147,7 +147,8 @@ export async function renderHandler(
     console.log('PDF generated successfully, size:', pdfBuffer.length, 'bytes');
 
     // 7. Upload PDF to Supabase Storage
-    const fileName = `${family_id}/${start}_${end}.pdf`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `${family_id}/${start}_${end}_${timestamp}.pdf`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(config.storage.bucket)
       .upload(fileName, pdfBuffer, {

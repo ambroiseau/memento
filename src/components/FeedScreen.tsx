@@ -332,8 +332,8 @@ export function FeedScreen({
     // Three images - first image larger on left, two smaller on right
     if (imageUrls.length === 3) {
       return (
-        <div className="grid grid-cols-2 gap-2 mb-3 h-80">
-          <div className="row-span-2">
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="aspect-[4/5]">
             <ImageWithFallback
               src={imageUrls[0]}
               alt="Post image 1"
@@ -342,7 +342,7 @@ export function FeedScreen({
             />
           </div>
           <div className="space-y-2">
-            <div className="h-[calc(50%-4px)]">
+            <div className="aspect-[4/2.5]">
               <ImageWithFallback
                 src={imageUrls[1]}
                 alt="Post image 2"
@@ -350,7 +350,7 @@ export function FeedScreen({
                 onClick={() => handleImageClick(imageUrls[1])}
               />
             </div>
-            <div className="h-[calc(50%-4px)]">
+            <div className="aspect-[4/2.5]">
               <ImageWithFallback
                 src={imageUrls[2]}
                 alt="Post image 3"

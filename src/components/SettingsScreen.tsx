@@ -321,7 +321,7 @@ export function SettingsScreen({
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 max-w-2xl mx-auto">
         {/* Personal Information */}
         <Card>
           <CardHeader>

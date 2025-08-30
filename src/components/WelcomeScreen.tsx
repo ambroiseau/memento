@@ -6,7 +6,7 @@ import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 
-export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handleJoinFamily, handleCreateFamily }) {
+export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handleJoinFamily, handleCreateFamily, handleSignOut }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   
@@ -77,6 +77,14 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
     }
   }
 
+  // Handle Enter key for forms
+  const handleKeyDown = (event, action) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      action()
+    }
+  }
+
   // If user is authenticated but not in a family, show family options
   if (user) {
     return (
@@ -114,6 +122,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                       placeholder="Enter family code (e.g., ABC123)"
                       value={familyCode}
                       onChange={(e) => setFamilyCode(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => handleKeyDown(e, handleJoinFamilySubmit)}
                       className="text-center text-lg tracking-wider"
                     />
                   </div>
@@ -151,6 +160,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                       placeholder="Enter family name (e.g., The Smiths)"
                       value={familyName}
                       onChange={(e) => setFamilyName(e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, handleCreateFamilySubmit)}
                     />
                   </div>
                   
@@ -240,6 +250,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(false))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -250,6 +261,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     placeholder="Your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(false))}
                   />
                 </div>
                 
@@ -284,6 +296,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     placeholder="Your full name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(true))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -294,6 +307,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(true))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -304,6 +318,7 @@ export function WelcomeScreen({ user, family, handleSignIn, handleSignUp, handle
                     placeholder="Create a password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(e, () => handleAuth(true))}
                   />
                 </div>
                 
