@@ -283,11 +283,20 @@ async function generatePDF(
 
     // Add images if any
     if (post.images && post.images.length > 0) {
+      let currentPage = page;
       let imageY = pageHeight - margin - 150;
       let imageX = margin;
+      let imagesPerPage = 0;
+      const maxImagesPerPage = 4; // Increased from 2 to 4
 
-      for (const image of post.images.slice(0, 2)) {
-        // Max 2 images per page
+      for (const image of post.images) {
+        // Create new page if we've reached the limit
+        if (imagesPerPage >= maxImagesPerPage) {
+          currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+          imageY = pageHeight - margin - 150;
+          imageX = margin;
+          imagesPerPage = 0;
+        }
         try {
           // Check if we have a valid URL
           if (!image.url) {
@@ -355,7 +364,7 @@ async function generatePDF(
           const offsetX = imageX + (maxWidth - scaledWidth) / 2;
           const offsetY = imageY - maxHeight + (maxHeight - scaledHeight) / 2;
 
-          page.drawImage(embeddedImage, {
+          currentPage.drawImage(embeddedImage, {
             x: offsetX,
             y: offsetY,
             width: scaledWidth,
@@ -364,7 +373,7 @@ async function generatePDF(
 
           // Add alt text below image
           if (image.alt_text) {
-            page.drawText(image.alt_text, {
+            currentPage.drawText(image.alt_text, {
               x: imageX,
               y: imageY - maxHeight - 15,
               size: 8,
@@ -378,11 +387,12 @@ async function generatePDF(
             imageX = margin;
             imageY -= 120;
           }
+          imagesPerPage++;
         } catch (error) {
           console.error('Error adding image:', error);
 
           // Fallback to placeholder rectangle
-          page.drawRectangle({
+          currentPage.drawRectangle({
             x: imageX,
             y: imageY - 100,
             width: 150,
@@ -392,7 +402,7 @@ async function generatePDF(
             color: rgb(0.95, 0.95, 0.95),
           });
 
-          page.drawText(`[Image: ${image.alt_text || 'Photo'}]`, {
+          currentPage.drawText(`[Image: ${image.alt_text || 'Photo'}]`, {
             x: imageX + 5,
             y: imageY - 95,
             size: 8,
@@ -405,6 +415,7 @@ async function generatePDF(
             imageX = margin;
             imageY -= 120;
           }
+          imagesPerPage++;
         }
       }
     }
