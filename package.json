@@ -97,6 +97,7 @@
         "ios:sync": "npx cap sync ios",
         "ios:copy": "npx cap copy ios",
         "ios:open": "npx cap open ios",
-        "ios:run": "npx cap run ios"
+        "ios:run": "npx cap run ios",
+    "pdf:start": "node scripts/start-pdf-renderer.js"
     }
 }

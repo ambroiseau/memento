@@ -127,9 +127,9 @@ export function FeedScreen({
   }, [hasMore, isLoadingMore, posts.length, loadPosts]);
 
   // Function to add a new post to the top of the feed
-  const addNewPostToFeed = (newPost) => {
+  const addNewPostToFeed = useCallback((newPost) => {
     setPosts(prevPosts => [newPost, ...prevPosts]);
-  };
+  }, []);
 
   // Set the addNewPostToFeed function in global state
   useEffect(() => {

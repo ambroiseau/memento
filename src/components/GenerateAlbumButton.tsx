@@ -40,6 +40,10 @@ export function GenerateAlbumButton({ familyId, userId }: GenerateAlbumButtonPro
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const result = await response.json();
 
       if (result.ok && result.pdf_url) {
@@ -52,7 +56,14 @@ export function GenerateAlbumButton({ familyId, userId }: GenerateAlbumButtonPro
       }
     } catch (error) {
       console.error('Error generating album:', error);
-      toast.error('Failed to generate album. Please try again.');
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('HTTP 404') || errorMessage.includes('Failed to fetch')) {
+        toast.error('PDF service is not available. Please check if the service is running.');
+      } else {
+        toast.error('Failed to generate album. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }

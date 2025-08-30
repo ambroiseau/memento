@@ -75,6 +75,7 @@ npm run build
 The Memento app includes a powerful PDF album generation feature:
 
 ### Features
+
 - **Professional A5 Layout**: Beautiful album format with cover page
 - **One Post Per Page**: Clean, readable layout for each memory
 - **Image Support**: Multiple images per post with grid layout
@@ -85,11 +86,13 @@ The Memento app includes a powerful PDF album generation feature:
 ### Setup
 
 1. **Database Migration**: Run the SQL migration to create the required table:
+
    ```sql
    -- Execute sql/create-render-jobs-table.sql
    ```
 
 2. **PDF Renderer Service**: Set up the Node.js service:
+
    ```bash
    cd renderer
    npm install
