@@ -8,6 +8,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
+import { DraggableImageGrid } from './DraggableImageGrid';
 
 export function CreatePost({
   user,
@@ -56,6 +57,10 @@ export function CreatePost({
 
   const removeImage = imageId => {
     setSelectedImages(prev => prev.filter(img => img.id !== imageId));
+  };
+
+  const handleImagesReorder = (reorderedImages) => {
+    setSelectedImages(reorderedImages);
   };
 
   const uploadImages = async () => {
@@ -215,29 +220,22 @@ export function CreatePost({
           <CardContent className="space-y-6">
             {/* Image Selection */}
             <div className="space-y-4">
-              <Label>Photos (up to 4)</Label>
+              <div className="flex items-center justify-between">
+                <Label>Photos (up to 4)</Label>
+                {selectedImages.length > 1 && (
+                  <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    💡 Drag to reorder photos
+                  </div>
+                )}
+              </div>
 
-              {/* Selected Images */}
+              {/* Selected Images with Drag & Drop */}
               {selectedImages.length > 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  {selectedImages.map(image => (
-                    <div key={image.id} className="relative group">
-                      <ImageWithFallback
-                        src={image.preview}
-                        alt="Selected"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeImage(image.id)}
-                        className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                <DraggableImageGrid
+                  images={selectedImages}
+                  onImagesReorder={handleImagesReorder}
+                  onRemoveImage={removeImage}
+                />
               )}
 
               {/* Add Images Button */}
