@@ -319,8 +319,11 @@ export function FeedScreen({
     // Three images - first image larger on left, two smaller on right
     if (imageUrls.length === 3) {
       return (
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="aspect-square">
+        <div
+          className="grid grid-cols-2 gap-2 mb-3"
+          style={{ gridTemplateRows: '1fr 1fr' }}
+        >
+          <div className="row-span-2">
             <ImageWithFallback
               src={imageUrls[0]}
               alt="Post image 1"
@@ -328,23 +331,21 @@ export function FeedScreen({
               onClick={() => handleImageClick(imageUrls[0])}
             />
           </div>
-          <div className="space-y-2">
-            <div className="aspect-square">
-              <ImageWithFallback
-                src={imageUrls[1]}
-                alt="Post image 2"
-                className="w-full h-full object-cover rounded-lg cursor-pointer transition-opacity hover:opacity-90"
-                onClick={() => handleImageClick(imageUrls[1])}
-              />
-            </div>
-            <div className="aspect-square">
-              <ImageWithFallback
-                src={imageUrls[2]}
-                alt="Post image 3"
-                className="w-full h-full object-cover rounded-lg cursor-pointer transition-opacity hover:opacity-90"
-                onClick={() => handleImageClick(imageUrls[2])}
-              />
-            </div>
+          <div className="aspect-square">
+            <ImageWithFallback
+              src={imageUrls[1]}
+              alt="Post image 2"
+              className="w-full h-full object-cover rounded-lg cursor-pointer transition-opacity hover:opacity-90"
+              onClick={() => handleImageClick(imageUrls[1])}
+            />
+          </div>
+          <div className="aspect-square">
+            <ImageWithFallback
+              src={imageUrls[2]}
+              alt="Post image 3"
+              className="w-full h-full object-cover rounded-lg cursor-pointer transition-opacity hover:opacity-90"
+              onClick={() => handleImageClick(imageUrls[2])}
+            />
           </div>
         </div>
       );
