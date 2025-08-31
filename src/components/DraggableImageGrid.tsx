@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Button } from './ui/button';
+import React, { useEffect, useRef, useState } from 'react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { Button } from './ui/button';
 
 interface DraggableImage {
   id: string;
@@ -35,11 +35,11 @@ export function DraggableImageGrid({
     }
 
     const visualOrder = [...Array(images.length).keys()];
-    
+
     if (draggedIndex !== dragOverIndex) {
       // Remove dragged item from its original position
       visualOrder.splice(draggedIndex, 1);
-      
+
       // Insert dragged item at new position
       visualOrder.splice(dragOverIndex, 0, draggedIndex);
     }
@@ -68,28 +68,36 @@ export function DraggableImageGrid({
     // Calculate which position we're hovering over
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
+
     // For 2x2 grid, calculate position
     const itemWidth = rect.width / 2;
     const itemHeight = rect.height / 2;
-    
+
     const col = Math.floor(mouseX / itemWidth);
     const row = Math.floor(mouseY / itemHeight);
     const newIndex = row * 2 + col;
-    
-    if (newIndex !== dragOverIndex && newIndex >= 0 && newIndex < images.length) {
+
+    if (
+      newIndex !== dragOverIndex &&
+      newIndex >= 0 &&
+      newIndex < images.length
+    ) {
       setDragOverIndex(newIndex);
     }
   };
 
   const handleMouseUp = () => {
-    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+    if (
+      draggedIndex !== null &&
+      dragOverIndex !== null &&
+      draggedIndex !== dragOverIndex
+    ) {
       const newImages = [...images];
       const [draggedItem] = newImages.splice(draggedIndex, 1);
       newImages.splice(dragOverIndex, 0, draggedItem);
       onImagesReorder(newImages);
     }
-    
+
     setDraggedIndex(null);
     setDragOverIndex(null);
     setIsDragging(false);
@@ -120,28 +128,36 @@ export function DraggableImageGrid({
     // Calculate which position we're hovering over
     const touchX = touch.clientX - rect.left;
     const touchY = touch.clientY - rect.top;
-    
+
     // For 2x2 grid, calculate position
     const itemWidth = rect.width / 2;
     const itemHeight = rect.height / 2;
-    
+
     const col = Math.floor(touchX / itemWidth);
     const row = Math.floor(touchY / itemHeight);
     const newIndex = row * 2 + col;
-    
-    if (newIndex !== dragOverIndex && newIndex >= 0 && newIndex < images.length) {
+
+    if (
+      newIndex !== dragOverIndex &&
+      newIndex >= 0 &&
+      newIndex < images.length
+    ) {
       setDragOverIndex(newIndex);
     }
   };
 
   const handleTouchEnd = () => {
-    if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
+    if (
+      draggedIndex !== null &&
+      dragOverIndex !== null &&
+      draggedIndex !== dragOverIndex
+    ) {
       const newImages = [...images];
       const [draggedItem] = newImages.splice(draggedIndex, 1);
       newImages.splice(dragOverIndex, 0, draggedItem);
       onImagesReorder(newImages);
     }
-    
+
     setDraggedIndex(null);
     setDragOverIndex(null);
     setIsDragging(false);
@@ -154,40 +170,30 @@ export function DraggableImageGrid({
       document.addEventListener('mousemove', handleMouseMove as any);
       document.addEventListener('mouseup', handleMouseUp);
       document.addEventListener('touchmove', preventScroll, { passive: false });
-      document.addEventListener('wheel', preventScroll, { passive: false });
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
     } else {
       document.removeEventListener('mousemove', handleMouseMove as any);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchmove', preventScroll);
-      document.removeEventListener('wheel', preventScroll);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
     }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove as any);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchmove', preventScroll);
-      document.removeEventListener('wheel', preventScroll);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
     };
   }, [isDragging, draggedIndex, dragOverIndex]);
 
   // Function to prevent scroll during drag
   const preventScroll = (e: Event) => {
-    e.preventDefault();
+    if (isDragging) {
+      e.preventDefault();
+    }
   };
 
   if (images.length === 0) return null;
@@ -202,7 +208,7 @@ export function DraggableImageGrid({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{
-        touchAction: isDragging ? 'none' : 'auto',
+        touchAction: isDragging ? 'none' : 'pan-y',
         overscrollBehavior: 'none',
       }}
     >
@@ -210,7 +216,7 @@ export function DraggableImageGrid({
         const image = images[originalIndex];
         const isDragged = originalIndex === draggedIndex;
         const isDragOver = visualIndex === dragOverIndex;
-        
+
         return (
           <div
             key={image.id}
@@ -218,11 +224,11 @@ export function DraggableImageGrid({
               isDragged ? 'z-50' : 'z-10'
             }`}
             style={{
-              transform: isDragged 
-                ? `translate3d(${dragOffset.x - 64}px, ${dragOffset.y - 64}px, 0) scale(1.1) rotate(5deg)` 
-                : isDragOver && !isDragged 
-                ? 'scale(0.95)' 
-                : 'scale(1)',
+              transform: isDragged
+                ? `translate3d(${dragOffset.x - 64}px, ${dragOffset.y - 64}px, 0) scale(1.1) rotate(5deg)`
+                : isDragOver && !isDragged
+                  ? 'scale(0.95)'
+                  : 'scale(1)',
               opacity: isDragged ? 0.8 : 1,
               willChange: isDragging ? 'transform' : 'auto',
             }}
