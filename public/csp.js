@@ -15,6 +15,10 @@ const generateCSP = () => {
       'https://*.supabase.co',
       'https://unpkg.com',
     ],
+    'worker-src': [
+      "'self'",
+      'blob:', // Required for heic2any Web Workers
+    ],
     'style-src': [
       "'self'",
       "'unsafe-inline'", // Required for Tailwind CSS

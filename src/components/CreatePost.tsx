@@ -1,15 +1,14 @@
-import { ArrowLeft, Camera, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
+
 import { getSignedImageUrl } from '../utils/signedUrls';
 import { supabaseApi } from '../utils/supabase-api';
 import { supabase } from '../utils/supabase/client';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { DraggableImageGrid } from './DraggableImageGrid';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { DraggableImageGrid } from './DraggableImageGrid';
-import { convertImageIfNeeded, isSupportedImageFormat } from '../utils/imageConverter';
 
 export function CreatePost({
   user,
@@ -26,7 +25,9 @@ export function CreatePost({
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
-  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const files = Array.from(event.target.files || []);
 
     // Limit to 4 images max
@@ -36,33 +37,32 @@ export function CreatePost({
     // Process each file with HEIC conversion
     for (const file of filesToProcess) {
       try {
-        // Check if file is a supported image format
-        if (!isSupportedImageFormat(file)) {
-          setError(`Unsupported file format: ${file.name}. Please use JPEG, PNG, GIF, WebP, or HEIC.`);
+        // Check if file is an image
+        if (!file.type.startsWith('image/')) {
+          setError(
+            `Unsupported file format: ${file.name}. Please use JPEG, PNG, GIF, or WebP.`
+          );
           continue;
         }
 
-        // Convert HEIC if needed and create preview
-        const convertedImage = await convertImageIfNeeded(file);
-        
-        setSelectedImages(prev => [
-          ...prev,
-          {
-            file: convertedImage.file,
-            preview: convertedImage.preview,
-            id: Math.random().toString(36).substr(2, 9),
-            originalFormat: convertedImage.originalFormat,
-            converted: convertedImage.converted,
-          },
-        ]);
-
-        // Show conversion message if HEIC was converted
-        if (convertedImage.converted) {
-          console.log(`✅ HEIC image converted: ${file.name} → ${convertedImage.file.name}`);
-        }
+                // Create preview for image
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setSelectedImages(prev => [
+            ...prev,
+            {
+              file: file,
+              preview: e.target?.result as string,
+              id: Math.random().toString(36).substr(2, 9),
+            },
+          ]);
+        };
+        reader.readAsDataURL(file);
       } catch (error) {
         console.error('Error processing image:', error);
-        setError(`Failed to process image: ${file.name}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+        setError(
+          `Failed to process image: ${file.name}. ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
@@ -76,7 +76,7 @@ export function CreatePost({
     setSelectedImages(prev => prev.filter(img => img.id !== imageId));
   };
 
-  const handleImagesReorder = (reorderedImages) => {
+  const handleImagesReorder = reorderedImages => {
     setSelectedImages(reorderedImages);
   };
 
@@ -254,18 +254,8 @@ export function CreatePost({
                     onImagesReorder={handleImagesReorder}
                     onRemoveImage={removeImage}
                   />
-                  
-                  {/* HEIC Conversion Info */}
-                  {selectedImages.some(img => img.converted) && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-sm text-blue-700">
-                          HEIC images have been automatically converted to JPEG for better compatibility
-                        </span>
-                      </div>
-                    </div>
-                  )}
+
+
                 </>
               )}
 
