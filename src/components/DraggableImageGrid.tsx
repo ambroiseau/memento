@@ -148,27 +148,47 @@ export function DraggableImageGrid({
     setDragOffset({ x: 0, y: 0 });
   };
 
-  // Add global event listeners for mouse events
+  // Add global event listeners for mouse events and prevent scroll
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove as any);
       document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', preventScroll, { passive: false });
+      document.addEventListener('wheel', preventScroll, { passive: false });
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
     } else {
       document.removeEventListener('mousemove', handleMouseMove as any);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('wheel', preventScroll);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove as any);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('wheel', preventScroll);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
   }, [isDragging, draggedIndex, dragOverIndex]);
+
+  // Function to prevent scroll during drag
+  const preventScroll = (e: Event) => {
+    e.preventDefault();
+  };
 
   if (images.length === 0) return null;
 
@@ -181,6 +201,10 @@ export function DraggableImageGrid({
       onMouseMove={handleMouseMove}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      style={{
+        touchAction: isDragging ? 'none' : 'auto',
+        overscrollBehavior: 'none',
+      }}
     >
       {visualOrder.map((originalIndex, visualIndex) => {
         const image = images[originalIndex];
