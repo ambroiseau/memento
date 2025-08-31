@@ -1,3 +1,8 @@
+import { config as dotenvConfig } from 'dotenv';
+
+// Load environment variables from .env file
+dotenvConfig();
+
 export const config = {
   port: parseInt(process.env.PORT || '3001'),
   supabase: {

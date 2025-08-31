@@ -13,6 +13,7 @@
   "dependencies": {
     "@fastify/cors": "^9.0.1",
     "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^17.2.1",
     "fastify": "^4.24.3",
     "pdf-lib": "^1.17.1",
     "uuid": "^11.1.0"
