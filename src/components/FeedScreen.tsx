@@ -59,13 +59,12 @@ export function FeedScreen({
         }
 
         const currentPage = isInitialLoad ? 0 : page + 1;
-                 const { posts } = await supabaseApi.getFamilyPosts(
-           family.id,
-           currentPage,
-           POSTS_PER_PAGE
-         );
-         console.log('Loaded posts:', posts);
-
+        const { posts } = await supabaseApi.getFamilyPosts(
+          family.id,
+          currentPage,
+          POSTS_PER_PAGE
+        );
+        console.log('Loaded posts:', posts);
 
         if (isInitialLoad) {
           setPosts(posts || []);
@@ -204,7 +203,10 @@ export function FeedScreen({
     const options = {
       month: 'long' as const,
       day: 'numeric' as const,
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' as const : undefined,
+      year:
+        date.getFullYear() !== now.getFullYear()
+          ? ('numeric' as const)
+          : undefined,
     };
 
     const formattedDate = date.toLocaleDateString('en-US', options);
@@ -235,7 +237,10 @@ export function FeedScreen({
     return date.toLocaleDateString('en-US', {
       month: 'short' as const,
       day: 'numeric' as const,
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' as const : undefined,
+      year:
+        date.getFullYear() !== now.getFullYear()
+          ? ('numeric' as const)
+          : undefined,
     });
   };
 
@@ -380,9 +385,7 @@ export function FeedScreen({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Avatar className="w-10 h-10">
-                <AvatarImage
-                  src={family.avatar}
-                />
+                <AvatarImage src={family.avatar} />
                 <AvatarFallback className="bg-gradient-to-r from-pink-500 to-orange-500 text-white">
                   {family.name?.charAt(0) || 'F'}
                 </AvatarFallback>
@@ -445,14 +448,12 @@ export function FeedScreen({
                     <div className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                                                  <Avatar className="w-10 h-10">
-                          <AvatarImage
-                            src={post.author?.avatar}
-                          />
-                          <AvatarFallback>
-                            {post.author?.name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={post.author?.avatar} />
+                            <AvatarFallback>
+                              {post.author?.name?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
                           <div>
                             <p className="text-sm">
                               {post.author?.name || 'Unknown'}
