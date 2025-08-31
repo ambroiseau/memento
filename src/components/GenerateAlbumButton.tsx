@@ -20,13 +20,27 @@ export function GenerateAlbumButton({
     setIsGenerating(true);
 
     try {
-      // Get current month date range
+      // Get current month date range with full timestamps
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const startOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+        0,
+        0,
+        1
+      ); // First day at 00:00:01
+      const endOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      ); // Last day at 23:59:59
 
-      const start = startOfMonth.toISOString().split('T')[0]; // YYYY-MM-DD
-      const end = endOfMonth.toISOString().split('T')[0]; // YYYY-MM-DD
+      const start = startOfMonth.toISOString(); // Full ISO timestamp
+      const end = endOfMonth.toISOString(); // Full ISO timestamp
 
       // Call the PDF renderer service
       const response = await fetch(

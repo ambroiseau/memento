@@ -54,12 +54,16 @@ export async function renderHandler(
     }
 
     // 3. Fetch posts and images for the period
+    // Extract date part from timestamps for the RPC function
+    const startDate = new Date(start).toISOString().split('T')[0];
+    const endDate = new Date(end).toISOString().split('T')[0];
+
     const { data: posts, error: postsError } = await supabase.rpc(
       'get_family_posts_with_images',
       {
         p_family_id: family_id,
-        p_start_date: start,
-        p_end_date: end,
+        p_start_date: startDate,
+        p_end_date: endDate,
       }
     );
 
@@ -227,7 +231,22 @@ async function generatePDF(
   // Add cover page
   const coverPage = pdfDoc.addPage([pageWidth, pageHeight]);
   const coverText = `${family.name} - Album Photos`;
-  const coverSubtext = `${start} - ${end}`;
+
+  // Format the date range nicely
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const startMonth = startDate.toLocaleDateString('fr-FR', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const endMonth = endDate.toLocaleDateString('fr-FR', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  // If same month, show just one month
+  const coverSubtext =
+    startMonth === endMonth ? startMonth : `${startMonth} - ${endMonth}`;
 
   // Center the title
   const titleWidth = boldFont.widthOfTextAtSize(coverText, 24);

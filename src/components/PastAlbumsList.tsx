@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Download, FileText, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, Download, FileText, XCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase/client';
+import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
 
 interface RenderJob {
   id: string;
@@ -62,14 +62,38 @@ export function PastAlbumsList({ familyId }: PastAlbumsListProps) {
   };
 
   const formatPeriod = (start: string, end: string) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    
-    if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
-      return startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    }
-    
-    return `${startDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+    // Parse dates manually to avoid timezone issues
+    const parseDate = (isoString: string) => {
+      const dateStr = isoString.split('T')[0]; // YYYY-MM-DD
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return { year, month: month - 1, day }; // month is 0-indexed in JS
+    };
+
+    const startParts = parseDate(start);
+    const endParts = parseDate(end);
+
+    // French month names
+    const months = [
+      'janvier',
+      'février',
+      'mars',
+      'avril',
+      'mai',
+      'juin',
+      'juillet',
+      'août',
+      'septembre',
+      'octobre',
+      'novembre',
+      'décembre',
+    ];
+
+    // For now, we only generate monthly albums, so just show the month
+    // Use the end month as it's typically the main month of the album
+    const month = months[endParts.month];
+    const year = endParts.year;
+
+    return `Album ${month} ${year}`;
   };
 
   const getStatusIcon = (status: string) => {
@@ -126,15 +150,19 @@ export function PastAlbumsList({ familyId }: PastAlbumsListProps) {
     return (
       <div className="text-center py-8">
         <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No albums yet</h3>
-        <p className="text-gray-500">Generate your first album to see it here.</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No albums yet
+        </h3>
+        <p className="text-gray-500">
+          Generate your first album to see it here.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {albums.map((album) => (
+      {albums.map(album => (
         <Card key={album.id}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -156,9 +184,7 @@ export function PastAlbumsList({ familyId }: PastAlbumsListProps) {
                 {album.finished_at && (
                   <p>Completed: {formatDate(album.finished_at)}</p>
                 )}
-                {album.page_count && (
-                  <p>{album.page_count} pages</p>
-                )}
+                {album.page_count && <p>{album.page_count} pages</p>}
               </div>
               {album.status === 'succeeded' && album.pdf_url && (
                 <Button
