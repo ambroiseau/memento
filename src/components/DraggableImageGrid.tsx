@@ -24,13 +24,37 @@ export function DraggableImageGrid({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef<HTMLDivElement>(null);
-  const touchStartY = useRef<number>(0);
-  const touchStartIndex = useRef<number>(-1);
+  const draggedElementRef = useRef<HTMLDivElement>(null);
+
+  // Calculate the visual order of images during drag
+  const getVisualOrder = () => {
+    if (draggedIndex === null || dragOverIndex === null) {
+      return images.map((_, index) => index);
+    }
+
+    const visualOrder = [...Array(images.length).keys()];
+    
+    if (draggedIndex !== dragOverIndex) {
+      // Remove dragged item from its original position
+      visualOrder.splice(draggedIndex, 1);
+      
+      // Insert dragged item at new position
+      visualOrder.splice(dragOverIndex, 0, draggedIndex);
+    }
+
+    return visualOrder;
+  };
 
   // Handle mouse drag events (desktop)
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
     e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
     setDraggedIndex(index);
     setIsDragging(true);
   };
@@ -41,9 +65,17 @@ export function DraggableImageGrid({
     const rect = dragRef.current?.getBoundingClientRect();
     if (!rect) return;
 
+    // Calculate which position we're hovering over
+    const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    const itemHeight = rect.height / images.length;
-    const newIndex = Math.floor(mouseY / itemHeight);
+    
+    // For 2x2 grid, calculate position
+    const itemWidth = rect.width / 2;
+    const itemHeight = rect.height / 2;
+    
+    const col = Math.floor(mouseX / itemWidth);
+    const row = Math.floor(mouseY / itemHeight);
+    const newIndex = row * 2 + col;
     
     if (newIndex !== dragOverIndex && newIndex >= 0 && newIndex < images.length) {
       setDragOverIndex(newIndex);
@@ -61,13 +93,17 @@ export function DraggableImageGrid({
     setDraggedIndex(null);
     setDragOverIndex(null);
     setIsDragging(false);
+    setDragOffset({ x: 0, y: 0 });
   };
 
   // Handle touch events (mobile)
   const handleTouchStart = (e: React.TouchEvent, index: number) => {
     const touch = e.touches[0];
-    touchStartY.current = touch.clientY;
-    touchStartIndex.current = index;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    });
     setDraggedIndex(index);
     setIsDragging(true);
   };
@@ -79,9 +115,17 @@ export function DraggableImageGrid({
     const rect = dragRef.current?.getBoundingClientRect();
     if (!rect) return;
 
+    // Calculate which position we're hovering over
+    const touchX = touch.clientX - rect.left;
     const touchY = touch.clientY - rect.top;
-    const itemHeight = rect.height / images.length;
-    const newIndex = Math.floor(touchY / itemHeight);
+    
+    // For 2x2 grid, calculate position
+    const itemWidth = rect.width / 2;
+    const itemHeight = rect.height / 2;
+    
+    const col = Math.floor(touchX / itemWidth);
+    const row = Math.floor(touchY / itemHeight);
+    const newIndex = row * 2 + col;
     
     if (newIndex !== dragOverIndex && newIndex >= 0 && newIndex < images.length) {
       setDragOverIndex(newIndex);
@@ -99,6 +143,7 @@ export function DraggableImageGrid({
     setDraggedIndex(null);
     setDragOverIndex(null);
     setIsDragging(false);
+    setDragOffset({ x: 0, y: 0 });
   };
 
   // Add global event listeners for mouse events
@@ -125,38 +170,44 @@ export function DraggableImageGrid({
 
   if (images.length === 0) return null;
 
+  const visualOrder = getVisualOrder();
+
   return (
     <div
       ref={dragRef}
-      className="grid grid-cols-2 gap-3"
+      className="grid grid-cols-2 gap-3 relative"
       onMouseMove={handleMouseMove}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {images.map((image, index) => {
-        const isDragged = index === draggedIndex;
-        const isDragOver = index === dragOverIndex;
+      {visualOrder.map((originalIndex, visualIndex) => {
+        const image = images[originalIndex];
+        const isDragged = originalIndex === draggedIndex;
+        const isDragOver = visualIndex === dragOverIndex;
         
         return (
           <div
             key={image.id}
-            className={`relative group transition-all duration-200 ${
-              isDragged ? 'opacity-50 scale-95 z-10' : ''
-            } ${
-              isDragOver && !isDragged ? 'scale-105' : ''
+            className={`relative group transition-all duration-300 ease-out ${
+              isDragged ? 'z-50' : 'z-10'
             }`}
             style={{
-              transform: isDragged ? 'rotate(5deg)' : '',
+              transform: isDragged 
+                ? `translate(${dragOffset.x - 64}px, ${dragOffset.y - 64}px) scale(1.1) rotate(5deg)` 
+                : isDragOver && !isDragged 
+                ? 'scale(0.95)' 
+                : 'scale(1)',
+              opacity: isDragged ? 0.8 : 1,
             }}
           >
-            <div 
+            <div
               className="relative cursor-grab active:cursor-grabbing"
-              onMouseDown={(e) => handleMouseDown(e, index)}
-              onTouchStart={(e) => handleTouchStart(e, index)}
+              onMouseDown={e => handleMouseDown(e, originalIndex)}
+              onTouchStart={e => handleTouchStart(e, originalIndex)}
             >
               <ImageWithFallback
                 src={image.preview}
-                alt={`Image ${index + 1}`}
+                alt={`Image ${originalIndex + 1}`}
                 className="w-full h-32 object-cover rounded-lg pointer-events-none"
               />
 
@@ -164,7 +215,7 @@ export function DraggableImageGrid({
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation();
                   onRemoveImage(image.id);
                 }}
@@ -172,12 +223,12 @@ export function DraggableImageGrid({
               >
                 <X className="w-3 h-3" />
               </Button>
-            </div>
 
-            {/* Drag Overlay */}
-            {isDragged && (
-              <div className="absolute inset-0 bg-blue-500/20 border-2 border-blue-500 rounded-lg pointer-events-none" />
-            )}
+              {/* Drag Overlay */}
+              {isDragged && (
+                <div className="absolute inset-0 bg-blue-500/20 border-2 border-blue-500 rounded-lg pointer-events-none" />
+              )}
+            </div>
           </div>
         );
       })}

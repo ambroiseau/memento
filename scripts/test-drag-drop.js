@@ -93,7 +93,7 @@ function testTouchEvents() {
 }
 
 function testVisualFeedback() {
-  console.log('🎨 Visual Feedback States:');
+  console.log('🎨 Visual Feedback States (iPhone-style):');
   
   const states = [
     { name: 'Normal', dragged: false, dragOver: false },
@@ -103,14 +103,22 @@ function testVisualFeedback() {
   ];
   
   states.forEach(state => {
-    const classes = [];
-    if (state.dragged) classes.push('opacity-50 scale-95 z-10');
-    if (state.dragOver && !state.dragged) classes.push('scale-105');
+    let transform = 'scale(1)';
+    let opacity = 1;
+    let zIndex = 'z-10';
     
-    console.log(`   ${state.name}: ${classes.length > 0 ? classes.join(' ') : 'normal'}`);
+    if (state.dragged) {
+      transform = 'translate(x, y) scale(1.1) rotate(5deg)';
+      opacity = 0.8;
+      zIndex = 'z-50';
+    } else if (state.dragOver) {
+      transform = 'scale(0.95)';
+    }
+    
+    console.log(`   ${state.name}: ${zIndex}, opacity: ${opacity}, transform: ${transform}`);
   });
   
-  console.log('   ✅ All visual states defined\n');
+  console.log('   ✅ iPhone-style visual feedback defined\n');
 }
 
 // Run all tests
@@ -118,13 +126,14 @@ testDragDropLogic();
 testTouchEvents();
 testVisualFeedback();
 
-console.log('🎉 Drag & Drop System Tests Complete!');
+console.log('🎉 iPhone-Style Drag & Drop System Tests Complete!');
 console.log('\n📝 Features Implemented:');
 console.log('   ✅ Mouse drag & drop (desktop)');
 console.log('   ✅ Touch drag & drop (mobile)');
-console.log('   ✅ Visual feedback during drag');
-console.log('   ✅ Direct image drag (no handles needed)');
+console.log('   ✅ iPhone-style visual feedback');
+console.log('   ✅ Real-time image reordering');
+console.log('   ✅ Smooth image transitions');
+console.log('   ✅ Direct image drag (no handles)');
 console.log('   ✅ Remove buttons');
-console.log('   ✅ Smooth animations');
 console.log('   ✅ Cross-platform compatibility');
 console.log('   ✅ Clean, minimal interface');
