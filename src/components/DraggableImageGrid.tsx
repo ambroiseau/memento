@@ -98,6 +98,7 @@ export function DraggableImageGrid({
 
   // Handle touch events (mobile)
   const handleTouchStart = (e: React.TouchEvent, index: number) => {
+    e.preventDefault(); // Prevent default touch behavior
     const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
     setDragOffset({
@@ -111,6 +112,7 @@ export function DraggableImageGrid({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || draggedIndex === null) return;
 
+    e.preventDefault(); // Prevent scrolling during drag
     const touch = e.touches[0];
     const rect = dragRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -193,11 +195,12 @@ export function DraggableImageGrid({
             }`}
             style={{
               transform: isDragged 
-                ? `translate(${dragOffset.x - 64}px, ${dragOffset.y - 64}px) scale(1.1) rotate(5deg)` 
+                ? `translate3d(${dragOffset.x - 64}px, ${dragOffset.y - 64}px, 0) scale(1.1) rotate(5deg)` 
                 : isDragOver && !isDragged 
                 ? 'scale(0.95)' 
                 : 'scale(1)',
               opacity: isDragged ? 0.8 : 1,
+              willChange: isDragging ? 'transform' : 'auto',
             }}
           >
             <div
