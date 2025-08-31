@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, GripVertical } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -149,36 +149,29 @@ export function DraggableImageGrid({
               transform: isDragged ? 'rotate(5deg)' : '',
             }}
           >
-            <div className="relative">
+            <div 
+              className="relative cursor-grab active:cursor-grabbing"
+              onMouseDown={(e) => handleMouseDown(e, index)}
+              onTouchStart={(e) => handleTouchStart(e, index)}
+            >
               <ImageWithFallback
                 src={image.preview}
                 alt={`Image ${index + 1}`}
-                className="w-full h-32 object-cover rounded-lg"
+                className="w-full h-32 object-cover rounded-lg pointer-events-none"
               />
-              
-              {/* Drag Handle */}
-              <div
-                className="absolute top-2 left-2 bg-black/50 hover:bg-black/70 text-white p-1 rounded cursor-grab active:cursor-grabbing transition-colors"
-                onMouseDown={(e) => handleMouseDown(e, index)}
-                onTouchStart={(e) => handleTouchStart(e, index)}
-              >
-                <GripVertical className="w-3 h-3" />
-              </div>
 
               {/* Remove Button */}
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => onRemoveImage(image.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveImage(image.id);
+                }}
                 className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600"
               >
                 <X className="w-3 h-3" />
               </Button>
-
-              {/* Order Indicator */}
-              <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                {index + 1}
-              </div>
             </div>
 
             {/* Drag Overlay */}
