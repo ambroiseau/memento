@@ -1,4 +1,4 @@
-import { FileText, Loader2 } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Button } from './ui/button';
@@ -106,9 +106,9 @@ export function GenerateAlbumButton({
       {isGenerating ? (
         <Loader2 className="w-4 h-4 animate-spin" />
       ) : (
-        <FileText className="w-4 h-4" />
+        <Plus className="w-4 h-4" />
       )}
-      {isGenerating ? 'Generating...' : 'Generate Album'}
+      {isGenerating ? 'Generating...' : 'New Album'}
     </Button>
   );
 }

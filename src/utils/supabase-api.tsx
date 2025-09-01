@@ -1,4 +1,4 @@
-import { getSignedImageUrl } from './signedUrls';
+import { getSignedAvatarUrl, getSignedImageUrl } from './signedUrls';
 import { supabase } from './supabase/client';
 
 // Helper function to convert file to base64
@@ -24,7 +24,22 @@ export const supabaseApi = {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
-    return { user: data };
+
+    // Generate signed URL for avatar if it's a storage path
+    let profile = data;
+    if (profile?.avatar_url) {
+      if (profile.avatar_url.startsWith('data:image')) {
+        // Keep data URL as is
+      } else if (profile.avatar_url.startsWith('http')) {
+        // Keep full URL as is
+      } else {
+        // It's a storage path, generate signed URL for avatar
+        const signedAvatarUrl = await getSignedAvatarUrl(profile.avatar_url);
+        profile = { ...profile, avatar_url: signedAvatarUrl };
+      }
+    }
+
+    return { user: profile };
   },
 
   createUserProfile: async (userData: {
@@ -128,8 +143,8 @@ export const supabaseApi = {
       } else if (family.avatar.startsWith('http')) {
         // Keep full URL as is
       } else {
-        // It's a storage path, generate signed URL
-        const signedAvatarUrl = await getSignedImageUrl(family.avatar);
+        // It's a storage path, generate signed URL for avatar
+        const signedAvatarUrl = await getSignedAvatarUrl(family.avatar);
         family = { ...family, avatar: signedAvatarUrl };
       }
     }
@@ -335,8 +350,8 @@ export const supabaseApi = {
           } else if (profile.avatar_url.startsWith('http')) {
             avatarUrl = profile.avatar_url;
           } else {
-            // It's a storage path, generate signed URL
-            avatarUrl = await getSignedImageUrl(profile.avatar_url);
+            // It's a storage path, generate signed URL for avatar
+            avatarUrl = await getSignedAvatarUrl(profile.avatar_url);
           }
         }
 
@@ -428,9 +443,9 @@ export const supabaseApi = {
     const storagePath = `images/${fileName}`;
 
     try {
-      // Upload to post-images bucket
+      // Upload to post-images-display bucket (new system)
       const { data, error } = await supabase.storage
-        .from('post-images')
+        .from('post-images-display')
         .upload(storagePath, file, {
           contentType: file.type,
           upsert: false,

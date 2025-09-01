@@ -244,24 +244,24 @@ export function DraggableImageGrid({
                 className="w-full h-32 object-cover rounded-lg pointer-events-none"
               />
 
-              {/* Remove Button */}
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={e => {
-                  e.stopPropagation();
-                  onRemoveImage(image.id);
-                }}
-                className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600"
-              >
-                <X className="w-3 h-3" />
-              </Button>
-
               {/* Drag Overlay */}
               {isDragged && (
                 <div className="absolute inset-0 bg-blue-500/20 border-2 border-blue-500 rounded-lg pointer-events-none" />
               )}
             </div>
+
+            {/* Remove Button - Déplacé en dehors de la zone de drag */}
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={e => {
+                e.stopPropagation();
+                onRemoveImage(image.id);
+              }}
+              className="absolute top-2 right-2 w-6 h-6 p-0 z-30 bg-red-500 hover:bg-red-600 shadow-lg"
+            >
+              <X className="w-3 h-3" />
+            </Button>
           </div>
         );
       })}

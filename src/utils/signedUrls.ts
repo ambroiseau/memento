@@ -15,18 +15,35 @@ export async function getSignedImageUrl(storagePath, expirySeconds = 600) {
   }
 
   try {
-    const { data, error } = await supabase.storage
-      .from('post-images')
+    // 🆕 Essayer d'abord le nouveau bucket (post-images-display)
+    let { data, error } = await supabase.storage
+      .from('post-images-display')
       .createSignedUrl(storagePath, expirySeconds);
 
     if (error) {
-      console.error('Error generating signed URL:', error);
-      return null;
+      console.log(
+        `🔄 Image non trouvée dans post-images-display, essai post-images...`
+      );
+
+      // Fallback vers l'ancien bucket (post-images) pour la compatibilité
+      const fallbackResult = await supabase.storage
+        .from('post-images')
+        .createSignedUrl(storagePath, expirySeconds);
+
+      if (fallbackResult.error) {
+        console.error(
+          '❌ Erreur génération signed URL depuis les deux buckets:',
+          error
+        );
+        return null;
+      }
+
+      return fallbackResult.data.signedUrl;
     }
 
     return data.signedUrl;
   } catch (error) {
-    console.error('Error generating signed URL:', error);
+    console.error('❌ Erreur générale génération signed URL:', error);
     return null;
   }
 }
@@ -90,4 +107,41 @@ export function preloadImages(imageUrls) {
       img.src = url;
     }
   });
+}
+
+/**
+ * Generate a signed URL for avatars (user and family)
+ * @param {string} storagePath - The storage path of the avatar
+ * @param {number} expirySeconds - URL expiry time in seconds (default: 3600 = 1 hour)
+ * @returns {Promise<string|null>} - The signed URL or null if error
+ */
+export async function getSignedAvatarUrl(storagePath, expirySeconds = 3600) {
+  if (!storagePath) return null;
+
+  // If it's already a base64 image, return as is
+  if (storagePath.startsWith('data:image')) {
+    return storagePath;
+  }
+
+  // If it's already a full URL, return as is
+  if (storagePath.startsWith('http')) {
+    return storagePath;
+  }
+
+  try {
+    // Try post-images bucket first (where avatars were probably stored)
+    const { data, error } = await supabase.storage
+      .from('post-images')
+      .createSignedUrl(storagePath, expirySeconds);
+
+    if (error) {
+      console.error('Error generating avatar signed URL:', error);
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error('Error generating avatar signed URL:', error);
+    return null;
+  }
 }

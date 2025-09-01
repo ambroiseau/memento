@@ -1,6 +1,7 @@
 import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import { secureImageUpload } from '../utils/secure-image-upload';
 import { getSignedImageUrl } from '../utils/signedUrls';
 import { supabaseApi } from '../utils/supabase-api';
 import { supabase } from '../utils/supabase/client';
@@ -45,9 +46,9 @@ export function CreatePost({
           continue;
         }
 
-                // Create preview for image
+        // Create preview for image
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = e => {
           setSelectedImages(prev => [
             ...prev,
             {
@@ -83,19 +84,44 @@ export function CreatePost({
   const uploadImages = async () => {
     const uploadedImages = [];
 
+    console.log('🚀 Début de uploadImages avec le NOUVEAU système');
+    console.log('📁 Images à uploader:', selectedImages.length);
+    console.log('🔒 Service disponible:', !!secureImageUpload);
+
     for (let i = 0; i < selectedImages.length; i++) {
       const image = selectedImages[i];
       try {
-        const result = await supabaseApi.uploadImage(image.file, user.id);
+        console.log(`📤 Upload de l'image ${i + 1}/${selectedImages.length}`);
+        console.log('📋 Détails:', {
+          fileName: image.file.name,
+          fileSize: image.file.size,
+          fileType: image.file.type,
+          userId: user.id,
+          familyId: family.id,
+        });
+
+        // ✅ NOUVEAU SYSTÈME : Double upload sécurisé
+        console.log('🔄 Appel de secureImageUpload.uploadWithCompression...');
+        const result = await secureImageUpload.uploadWithCompression(
+          image.file,
+          user.id,
+          family.id
+        );
+
+        console.log('✅ Upload réussi !', result);
         uploadedImages.push(result.imageId);
-        // Store the uploaded URL in the selectedImage for later use
-        selectedImages[i].uploadedUrl = result.url;
+        // Store the display URL for display (optimized for web)
+        selectedImages[i].uploadedUrl = result.displayUrl;
+        // Store the original URL for future use (high quality)
+        selectedImages[i].originalUrl = result.originalUrl;
       } catch (error) {
-        console.error('Error uploading image:', error);
+        console.error("❌ Erreur lors de l'upload:", error);
+        console.error('❌ Stack trace:', error.stack);
         throw new Error('Failed to upload image');
       }
     }
 
+    console.log('🎯 Upload terminé, images uploadées:', uploadedImages);
     return uploadedImages;
   };
 
@@ -254,8 +280,6 @@ export function CreatePost({
                     onImagesReorder={handleImagesReorder}
                     onRemoveImage={removeImage}
                   />
-
-
                 </>
               )}
 

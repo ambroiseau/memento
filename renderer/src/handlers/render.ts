@@ -110,10 +110,35 @@ export async function renderHandler(
               }
 
               // Try to generate signed URL for storage path
-              const { data: signedUrl, error: urlError } =
-                await supabase.storage
-                  .from('post-images')
-                  .createSignedUrl(image.storage_path, 3600); // 1 hour expiry
+              // ✅ PDF : Utilise les images ORIGINALES (haute qualité)
+              let { data: signedUrl, error: urlError } = await supabase.storage
+                .from('post-images-original')
+                .createSignedUrl(image.storage_path, 3600); // 1 hour expiry
+
+              // Fallback vers display si original non disponible
+              if (urlError) {
+                console.log(
+                  'Image not found in post-images-original, trying post-images-display...'
+                );
+                const fallbackResult = await supabase.storage
+                  .from('post-images-display')
+                  .createSignedUrl(image.storage_path, 3600);
+
+                if (fallbackResult.error) {
+                  console.error(
+                    'Error creating signed URL from both buckets:',
+                    urlError
+                  );
+                  return {
+                    id: image.id,
+                    url: null, // Will be handled in generatePDF
+                    alt_text: image.alt_text || '',
+                  };
+                }
+
+                signedUrl = fallbackResult.data;
+                urlError = null;
+              }
 
               if (urlError) {
                 console.error('Error creating signed URL:', urlError);

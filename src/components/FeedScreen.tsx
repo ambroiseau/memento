@@ -1,5 +1,15 @@
-import { Book, Check, Copy, Heart, Plus, Settings, Users } from 'lucide-react';
+import {
+  Book,
+  Check,
+  Copy,
+  Heart,
+  Plus,
+  Settings,
+  TestTube,
+  Users,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTestOptimizedImage } from '../hooks/useTestOptimizedImage';
 import { supabaseApi } from '../utils/supabase-api';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { GenerateAlbumButton } from './GenerateAlbumButton';
@@ -28,6 +38,10 @@ export function FeedScreen({
   const [page, setPage] = useState(0);
   const POSTS_PER_PAGE = 5; // Reduced from 10 to 5 for faster initial load
 
+  // 🔒 Hook de test pour OptimizedImage
+  const { isTestVisible, toggleTest, getTestComponent } =
+    useTestOptimizedImage();
+
   // Intersection observer for infinite scroll
   const observerRef = useRef(null);
   const lastPostRef = useRef(null);
@@ -51,6 +65,7 @@ export function FeedScreen({
         setError('');
 
         console.log('Loading posts for family:', family);
+        console.log('Family avatar:', family?.avatar);
 
         if (!family || !family.id) {
           console.error('No family or family.id found:', family);
@@ -588,6 +603,22 @@ export function FeedScreen({
           <span className="text-white font-medium">Post new memory</span>
         </Button>
       </div>
+
+      {/* Test Button */}
+      <div className="fixed bottom-6 right-6 z-20">
+        <Button
+          onClick={toggleTest}
+          size="sm"
+          variant="outline"
+          className="bg-white hover:bg-gray-50 border-gray-300"
+        >
+          <TestTube className="w-4 h-4 mr-2" />
+          Test OptimizedImage
+        </Button>
+      </div>
+
+      {/* Test Modal */}
+      {getTestComponent()}
     </div>
   );
 }
