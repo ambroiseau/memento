@@ -21,8 +21,8 @@ const generateCSP = () => {
     ],
     'style-src': [
       "'self'",
-      // ✅ SECURITY: Only allow unsafe-inline in development
-      ...(isDev ? ["'unsafe-inline'"] : []),
+      // ✅ SECURITY: Allow unsafe-inline for toasters and dynamic styles
+      "'unsafe-inline'",
       'https://fonts.googleapis.com',
     ],
     'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
