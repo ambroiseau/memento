@@ -3,13 +3,17 @@ import {
   Check,
   Copy,
   Heart,
+  MoreHorizontal,
   Plus,
   Settings,
+  Trash2,
   Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
 
 import { supabaseApi } from '../utils/supabase-api';
+import { supabase } from '../utils/supabase/client';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { GenerateAlbumButton } from './GenerateAlbumButton';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -35,6 +39,8 @@ export function FeedScreen({
   const [copied, setCopied] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+  const [openMenuPostId, setOpenMenuPostId] = useState(null);
+  const [deleteConfirmPost, setDeleteConfirmPost] = useState(null);
   const POSTS_PER_PAGE = 5; // Reduced from 10 to 5 for faster initial load
 
   // Intersection observer for infinite scroll
@@ -46,6 +52,18 @@ export function FeedScreen({
       loadPosts();
     }
   }, [family, userProfile]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = event => {
+      if (openMenuPostId && !event.target.closest('.menu-container')) {
+        setOpenMenuPostId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openMenuPostId]);
 
   const loadPosts = useCallback(
     async (isInitialLoad = true) => {
@@ -185,6 +203,113 @@ export function FeedScreen({
       );
     } catch (error) {
       console.log('Error toggling reaction:', error);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!user || !user.id) return;
+
+    // Show confirmation popup
+    setDeleteConfirmPost(postId);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!deleteConfirmPost || !user || !user.id) return;
+
+    try {
+      // First, get the post images to delete them from storage
+      const { data: postImages, error: fetchError } = await supabase
+        .from('post_images')
+        .select('*')
+        .eq('post_id', deleteConfirmPost);
+
+      if (fetchError) {
+        console.error('Error fetching post images:', fetchError);
+      }
+
+      // Log the structure to see what columns exist
+      if (postImages && postImages.length > 0) {
+        console.log('🔍 Post images structure:', postImages[0]);
+      }
+
+      // Delete images from storage buckets if they exist
+      if (postImages && postImages.length > 0) {
+        console.log('🗑️ Deleting images from storage:', postImages);
+        const deletePromises = [];
+
+        for (const image of postImages) {
+          console.log('📸 Processing image:', image);
+
+          // Try to delete from both buckets using the storage_path
+          // The storage_path might be in post-images-display or post-images-original
+          if (image.storage_path) {
+            console.log('🗑️ Attempting to delete image:', image.storage_path);
+
+            // Try to delete from post-images-display first
+            const deleteDisplayPromise = supabase.storage
+              .from('post-images-display')
+              .remove([image.storage_path])
+              .then(result => {
+                console.log('✅ Display image deleted:', result);
+                return result;
+              })
+              .catch(error => {
+                console.log(
+                  'ℹ️ Image not in display bucket, trying original bucket...'
+                );
+                // If not in display, try original bucket
+                return supabase.storage
+                  .from('post-images-original')
+                  .remove([image.storage_path])
+                  .then(result => {
+                    console.log('✅ Original image deleted:', result);
+                    return result;
+                  })
+                  .catch(originalError => {
+                    console.error(
+                      '❌ Error deleting from both buckets:',
+                      originalError
+                    );
+                    return originalError;
+                  });
+              });
+            deletePromises.push(deleteDisplayPromise);
+          }
+        }
+
+        // Wait for all storage deletions to complete
+        console.log('⏳ Waiting for all deletions to complete...');
+        const results = await Promise.all(deletePromises);
+        console.log('📊 Deletion results:', results);
+      } else {
+        console.log('ℹ️ No images found for this post');
+      }
+
+      // Delete the post (this will cascade delete post_images due to foreign key)
+      const { error: postDeleteError } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', deleteConfirmPost)
+        .eq('user_id', user.id); // Security: only delete own posts
+
+      if (postDeleteError) {
+        throw postDeleteError;
+      }
+
+      // Remove post from local state
+      setPosts(prevPosts =>
+        prevPosts.filter(post => post.id !== deleteConfirmPost)
+      );
+
+      // Show success message
+      toast.success('Post and images deleted successfully');
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Failed to delete post. Please try again.');
+    } finally {
+      // Close popup
+      setDeleteConfirmPost(null);
+      setOpenMenuPostId(null);
     }
   };
 
@@ -474,13 +599,48 @@ export function FeedScreen({
                             </p>
                           </div>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className="text-xs flex items-center gap-1"
-                        >
-                          <Book className="w-3 h-3" />
-                          August
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className="text-xs flex items-center gap-1"
+                          >
+                            <Book className="w-3 h-3" />
+                            August
+                          </Badge>
+
+                          {/* Menu 3 points - Only show for own posts */}
+                          {post.user_id === user.id && (
+                            <div className="relative menu-container">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setOpenMenuPostId(
+                                    openMenuPostId === post.id ? null : post.id
+                                  )
+                                }
+                                className="w-8 h-8 p-0 text-gray-500 hover:text-gray-700"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+
+                              {/* Dropdown Menu */}
+                              {openMenuPostId === post.id && (
+                                <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                                  <button
+                                    onClick={() => {
+                                      handleDeletePost(post.id);
+                                      setOpenMenuPostId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -508,28 +668,31 @@ export function FeedScreen({
                           </p>
                         </div>
 
-                        {/* Reaction Button */}
-                        {reactionsEnabled && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleReaction(post.id, 'heart')}
-                            className={`flex items-center space-x-1 flex-shrink-0 ${
-                              post.reactions?.heart?.includes(user.id)
-                                ? 'text-red-500'
-                                : 'text-gray-500'
-                            }`}
-                          >
-                            <Heart
-                              className={`w-4 h-4 ${
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          {/* Reaction Button */}
+                          {reactionsEnabled && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleReaction(post.id, 'heart')}
+                              className={`flex items-center space-x-1 flex-shrink-0 ${
                                 post.reactions?.heart?.includes(user.id)
-                                  ? 'fill-current'
-                                  : ''
+                                  ? 'text-red-500'
+                                  : 'text-gray-500'
                               }`}
-                            />
-                            <span>{post.reactions?.heart?.length || 0}</span>
-                          </Button>
-                        )}
+                            >
+                              <Heart
+                                className={`w-4 h-4 ${
+                                  post.reactions?.heart?.includes(user.id)
+                                    ? 'fill-current'
+                                    : ''
+                                }`}
+                              />
+                              <span>{post.reactions?.heart?.length || 0}</span>
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -592,14 +755,48 @@ export function FeedScreen({
         <Button
           onClick={() => setCurrentScreen('create-post')}
           size="lg"
-          className="px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 shadow-lg hover:shadow-xl transition-all duration-200 border-0 flex items-center gap-2"
+          className="px-8 py-4 rounded-full bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 shadow-lg hover:shadow-xl transition-all duration-200 border-0 flex items-center gap-3 text-lg font-semibold"
         >
-          <Plus className="w-5 h-5 text-white" />
-          <span className="text-white font-medium">Post new memory</span>
+          <Plus className="w-8 h-8 text-white" />
+          <span className="text-white font-semibold">Post new memory</span>
         </Button>
       </div>
 
-
+      {/* Delete Confirmation Popup */}
+      {deleteConfirmPost && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Delete Post
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to delete this post? This action cannot be
+                undone.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirmPost(null)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDeletePost}
+                  className="flex-1"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
