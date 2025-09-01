@@ -108,3 +108,4 @@ secrets.json
 *.bak
 *.backup
 *.old
+.vercel
