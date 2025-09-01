@@ -10,8 +10,8 @@ const generateCSP = () => {
     'default-src': ["'self'"],
     'script-src': [
       "'self'",
-      "'unsafe-inline'", // Required for Vite HMR in development
-      "'unsafe-eval'", // Required for Vite in development
+      // ✅ SECURITY: Only allow unsafe-inline in development
+      ...(isDev ? ["'unsafe-inline'", "'unsafe-eval'"] : []),
       'https://*.supabase.co',
       'https://unpkg.com',
     ],
@@ -21,7 +21,8 @@ const generateCSP = () => {
     ],
     'style-src': [
       "'self'",
-      "'unsafe-inline'", // Required for Tailwind CSS
+      // ✅ SECURITY: Only allow unsafe-inline in development
+      ...(isDev ? ["'unsafe-inline'"] : []),
       'https://fonts.googleapis.com',
     ],
     'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
@@ -46,11 +47,12 @@ const generateCSP = () => {
     'form-action': ["'self'"],
     'frame-ancestors': ["'self'"],
     'upgrade-insecure-requests': [],
+    // ✅ SECURITY: Add basic security headers (compatible)
+    'referrer-policy': ['strict-origin-when-cross-origin'],
   };
 
   // Add development-specific policies
   if (isDev) {
-    csp['script-src'].push("'unsafe-eval'");
     csp['connect-src'].push(
       'ws://localhost:*',
       'ws://127.0.0.1:*',
