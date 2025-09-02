@@ -41,6 +41,7 @@ export function FeedScreen({
   const [page, setPage] = useState(0);
   const [openMenuPostId, setOpenMenuPostId] = useState(null);
   const [deleteConfirmPost, setDeleteConfirmPost] = useState(null);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
   const POSTS_PER_PAGE = 5; // Reduced from 10 to 5 for faster initial load
 
   // Intersection observer for infinite scroll
@@ -50,8 +51,29 @@ export function FeedScreen({
   useEffect(() => {
     if (family) {
       loadPosts();
+      checkUserRole();
     }
   }, [family, userProfile]);
+
+  const checkUserRole = async () => {
+    if (!family || !user) return;
+
+    try {
+      const { data: member, error } = await supabase
+        .from('family_members')
+        .select('role')
+        .eq('family_id', family.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!error && member) {
+        setIsUserAdmin(member.role === 'admin');
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error);
+      setIsUserAdmin(false);
+    }
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -532,7 +554,10 @@ export function FeedScreen({
             </div>
 
             <div className="flex items-center space-x-2">
-              <GenerateAlbumButton familyId={family.id} userId={user.id} />
+              {/* Only show Generate Album button for admins */}
+              {isUserAdmin && (
+                <GenerateAlbumButton familyId={family.id} userId={user.id} />
+              )}
               <Button
                 variant="ghost"
                 size="sm"
