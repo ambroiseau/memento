@@ -55,19 +55,31 @@ export class MediaProcessor {
         return existingMedia;
       }
 
-      // 3. Télécharger le fichier depuis Telegram
-      const { filePath, fileInfo } = await this.telegramService.downloadFile(mediaItem.file_id);
+      // 3. Télécharger le fichier depuis Telegram avec double stockage
+      const { originalPath, displayPath, fileInfo, compressionStats } = 
+        await this.telegramService.downloadFile(mediaItem.file_id, mediaItem.type);
       
       // 4. Vérifier le type de fichier
       if (!this.telegramService.isFileTypeSupported(fileInfo.mime_type)) {
         throw new Error(`Unsupported file type: ${fileInfo.mime_type}`);
       }
 
-      // 5. Obtenir l'URL publique
-      const publicUrl = await this.telegramService.getPublicUrl(filePath);
+      // 5. Obtenir les URLs publiques
+      const originalUrl = await this.telegramService.getPublicUrl(originalPath, 'post-images-original');
+      const displayUrl = await this.telegramService.getPublicUrl(displayPath, 'post-images-display');
 
       // 6. Sauvegarder dans la base de données
-      const savedMedia = await this.saveMediaToDatabase(family.id, chatId, mediaItem, filePath, publicUrl, fileInfo);
+      const savedMedia = await this.saveMediaToDatabase(
+        family.id, 
+        chatId, 
+        mediaItem, 
+        originalPath, 
+        displayPath,
+        originalUrl, 
+        displayUrl, 
+        fileInfo,
+        compressionStats
+      );
 
       // 7. Mettre à jour la source avec la dernière synchronisation
       await this.updateSourceLastSync(chatId, family.id);
@@ -139,24 +151,28 @@ export class MediaProcessor {
   }
 
   /**
-   * Sauvegarde un média dans la base de données
+   * Sauvegarde un média dans la base de données avec double stockage
    */
   private async saveMediaToDatabase(
     familyId: string,
     chatId: string,
     mediaItem: any,
-    filePath: string,
-    publicUrl: string,
-    fileInfo: any
+    originalPath: string,
+    displayPath: string,
+    originalUrl: string,
+    displayUrl: string,
+    fileInfo: any,
+    compressionStats?: any
   ): Promise<any> {
     try {
-      // Préparer les données du média
+      // Préparer les données du média avec double stockage
       const mediaData = {
         family_id: familyId,
         source_id: await this.getSourceId(chatId, familyId),
         external_id: mediaItem.file_unique_id,
         media_type: this.mapTelegramTypeToMediaType(mediaItem.type),
-        media_url: publicUrl,
+        media_url: displayUrl, // URL de l'image display (optimisée web)
+        original_url: originalUrl, // URL de l'image originale (haute qualité)
         thumbnail_url: null, // TODO: Gérer les thumbnails
         caption: mediaItem.caption || null,
         metadata: {
@@ -165,7 +181,9 @@ export class MediaProcessor {
           telegram_file_path: fileInfo.file_path,
           telegram_file_size: fileInfo.file_size,
           telegram_mime_type: fileInfo.mime_type,
-          local_storage_path: filePath,
+          original_storage_path: originalPath,
+          display_storage_path: displayPath,
+          compression_stats: compressionStats,
           processed_at: new Date().toISOString(),
         },
       };

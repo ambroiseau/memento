@@ -17,11 +17,23 @@ export const config = {
     audio: ['audio/mpeg', 'audio/ogg', 'audio/wav'],
   },
   
-  // Configuration du stockage
+  // Configuration du stockage - Système de double stockage
   storage: {
-    bucket: 'family-photos',
-    folder: 'telegram-media',
-    publicAccess: true,
+    original: {
+      bucket: 'post-images-original',
+      folder: 'telegram-media',
+      publicAccess: false,
+      maxFileSize: 50 * 1024 * 1024, // 50MB
+    },
+    display: {
+      bucket: 'post-images-display',
+      folder: 'telegram-media',
+      publicAccess: true,
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      compressionQuality: 0.8,
+      maxWidth: 1200,
+      maxHeight: 1200,
+    },
   },
   
   // Configuration de la base de données

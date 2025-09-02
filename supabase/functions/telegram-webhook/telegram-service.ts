@@ -1,25 +1,53 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { ImageCompressor, type CompressionOptions } from './image-compressor.ts';
 
 // Configuration
 const TELEGRAM_API_BASE = 'https://api.telegram.org/bot';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv'];
-const SUPPORTED_DOCUMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif'];
+const SUPPORTED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+];
+const SUPPORTED_VIDEO_TYPES = [
+  'video/mp4',
+  'video/avi',
+  'video/mov',
+  'video/wmv',
+];
+const SUPPORTED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+];
 
 export class TelegramService {
   private supabase: any;
   private botToken: string;
 
-  constructor(botToken: string, supabaseUrl: string, supabaseServiceKey: string) {
+  constructor(
+    botToken: string,
+    supabaseUrl: string,
+    supabaseServiceKey: string
+  ) {
     this.botToken = botToken;
     this.supabase = createClient(supabaseUrl, supabaseServiceKey);
   }
 
   /**
-   * Télécharge un fichier depuis Telegram
+   * Télécharge un fichier depuis Telegram avec double stockage
    */
-  async downloadFile(fileId: string): Promise<{ filePath: string; fileInfo: any }> {
+  async downloadFile(
+    fileId: string,
+    mediaType: string = 'image'
+  ): Promise<{ 
+    originalPath: string; 
+    displayPath: string; 
+    fileInfo: any;
+    compressionStats?: any;
+  }> {
     try {
       // 1. Obtenir les informations du fichier
       const fileInfo = await this.getFileInfo(fileId);
@@ -29,15 +57,19 @@ export class TelegramService {
 
       // 2. Vérifier la taille du fichier
       if (fileInfo.file_size && fileInfo.file_size > MAX_FILE_SIZE) {
-        throw new Error(`File too large: ${fileInfo.file_size} bytes (max: ${MAX_FILE_SIZE})`);
+        throw new Error(
+          `File too large: ${fileInfo.file_size} bytes (max: ${MAX_FILE_SIZE})`
+        );
       }
 
       // 3. Télécharger le fichier
       const fileUrl = `${TELEGRAM_API_BASE}${this.botToken}/file/${fileInfo.file_path}`;
       const response = await fetch(fileUrl);
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Failed to download file: ${response.status} ${response.statusText}`
+        );
       }
 
       // 4. Lire le contenu du fichier
@@ -50,28 +82,72 @@ export class TelegramService {
 
       // 6. Générer un nom de fichier unique
       const fileName = `${Date.now()}_${fileId}${extension}`;
-      const filePath = `telegram-media/${fileName}`;
+      const originalPath = `telegram-media/${fileName}`;
+      const displayPath = `telegram-media/${fileName}`;
 
-      // 7. Uploader vers Supabase Storage
-      const { data: uploadData, error: uploadError } = await this.supabase.storage
-        .from('family-photos')
-        .upload(filePath, uint8Array, {
+      // 7. Upload de l'image originale (haute qualité)
+      const { error: originalUploadError } = await this.supabase.storage
+        .from('post-images-original')
+        .upload(originalPath, uint8Array, {
           contentType: mimeType,
           upsert: false,
         });
 
-      if (uploadError) {
-        throw new Error(`Storage upload failed: ${uploadError.message}`);
+      if (originalUploadError) {
+        throw new Error(`Original storage upload failed: ${originalUploadError.message}`);
+      }
+
+      let compressionStats: any = null;
+
+      // 8. Compression et upload de l'image display (optimisée web)
+      if (this.isImageType(mimeType)) {
+        try {
+          const imageCompressor = ImageCompressor.getInstance();
+          const compressionOptions = imageCompressor.getCompressionOptionsForType(mediaType);
+          
+          const compressedImage = await imageCompressor.compressImage(
+            uint8Array,
+            mimeType,
+            compressionOptions
+          );
+
+          // Upload de l'image compressée
+          const { error: displayUploadError } = await this.supabase.storage
+            .from('post-images-display')
+            .upload(displayPath, compressedImage.data, {
+              contentType: compressedImage.mimeType,
+              upsert: false,
+            });
+
+          if (displayUploadError) {
+            console.warn(`Display storage upload failed: ${displayUploadError.message}`);
+            // On continue sans l'image display, l'original suffit
+          } else {
+            compressionStats = {
+              originalSize: compressedImage.originalSize,
+              compressedSize: compressedImage.compressedSize,
+              compressionRatio: compressedImage.compressionRatio,
+              width: compressedImage.width,
+              height: compressedImage.height,
+            };
+          }
+        } catch (compressionError) {
+          console.warn('Image compression failed, using original:', compressionError);
+          // En cas d'échec de compression, on continue avec l'original
+        }
       }
 
       return {
-        filePath,
+        originalPath,
+        displayPath,
         fileInfo: {
           ...fileInfo,
           mime_type: mimeType,
           file_size: uint8Array.length,
-          local_path: filePath,
+          original_path: originalPath,
+          display_path: displayPath,
         },
+        compressionStats,
       };
 
     } catch (error) {
@@ -88,13 +164,13 @@ export class TelegramService {
       const response = await fetch(
         `${TELEGRAM_API_BASE}${this.botToken}/getFile?file_id=${fileId}`
       );
-      
+
       if (!response.ok) {
         throw new Error(`Failed to get file info: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (!data.ok) {
         throw new Error(`Telegram API error: ${data.description}`);
       }
@@ -112,37 +188,57 @@ export class TelegramService {
   private detectMimeType(uint8Array: Uint8Array, filePath: string): string {
     // Vérifier les signatures de fichiers courantes
     const header = uint8Array.slice(0, 4);
-    
+
     // JPEG
-    if (header[0] === 0xFF && header[1] === 0xD8 && header[2] === 0xFF) {
+    if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) {
       return 'image/jpeg';
     }
-    
+
     // PNG
-    if (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47) {
+    if (
+      header[0] === 0x89 &&
+      header[1] === 0x50 &&
+      header[2] === 0x4e &&
+      header[3] === 0x47
+    ) {
       return 'image/png';
     }
-    
+
     // GIF
     if (header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46) {
       return 'image/gif';
     }
-    
+
     // WebP
-    if (header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x54) {
+    if (
+      header[0] === 0x52 &&
+      header[1] === 0x49 &&
+      header[2] === 0x46 &&
+      header[3] === 0x54
+    ) {
       return 'image/webp';
     }
-    
+
     // MP4
-    if (header[0] === 0x00 && header[1] === 0x00 && header[2] === 0x00 && header[3] === 0x18) {
+    if (
+      header[0] === 0x00 &&
+      header[1] === 0x00 &&
+      header[2] === 0x00 &&
+      header[3] === 0x18
+    ) {
       return 'video/mp4';
     }
-    
+
     // PDF
-    if (header[0] === 0x25 && header[1] === 0x50 && header[2] === 0x44 && header[3] === 0x46) {
+    if (
+      header[0] === 0x25 &&
+      header[1] === 0x50 &&
+      header[2] === 0x44 &&
+      header[3] === 0x46
+    ) {
       return 'application/pdf';
     }
-    
+
     // Par défaut, essayer de déduire du chemin de fichier
     return this.getMimeTypeFromPath(filePath);
   }
@@ -152,7 +248,7 @@ export class TelegramService {
    */
   private getMimeTypeFromPath(filePath: string): string {
     const extension = filePath.split('.').pop()?.toLowerCase();
-    
+
     switch (extension) {
       case 'jpg':
       case 'jpeg':
@@ -187,7 +283,7 @@ export class TelegramService {
     if (pathExtension && pathExtension.length <= 5) {
       return `.${pathExtension}`;
     }
-    
+
     // Sinon, déduire depuis le type MIME
     switch (mimeType) {
       case 'image/jpeg':
@@ -225,12 +321,20 @@ export class TelegramService {
   }
 
   /**
+   * Vérifie si c'est un type d'image
+   */
+  isImageType(mimeType: string): boolean {
+    return SUPPORTED_IMAGE_TYPES.includes(mimeType);
+  }
+
+    /**
    * Obtient l'URL publique d'un fichier stocké
    */
-  async getPublicUrl(filePath: string): Promise<string> {
+  async getPublicUrl(filePath: string, bucketName?: string): Promise<string> {
     try {
+      const bucket = bucketName || 'post-images-display';
       const { data } = this.supabase.storage
-        .from('family-photos')
+        .from(bucket)
         .getPublicUrl(filePath);
       
       return data.publicUrl;
@@ -248,11 +352,11 @@ export class TelegramService {
       const { error } = await this.supabase.storage
         .from('family-photos')
         .remove([filePath]);
-      
+
       if (error) {
         throw error;
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error deleting file:', error);
