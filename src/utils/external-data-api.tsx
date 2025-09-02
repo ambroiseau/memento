@@ -209,7 +209,7 @@ export const externalDataApi = {
       const offset = (page - 1) * limit;
 
       const { data, error, count } = await supabase
-        .from('external_media')
+        .from('external_images')
         .select('*', { count: 'exact' })
         .eq('source_id', sourceId)
         .order('imported_at', { ascending: false })
@@ -257,7 +257,7 @@ export const externalDataApi = {
       const offset = (page - 1) * limit;
 
       const { data, error, count } = await supabase
-        .from('external_media')
+        .from('external_images')
         .select('*', { count: 'exact' })
         .eq('family_id', familyId)
         .order('imported_at', { ascending: false })
@@ -301,7 +301,7 @@ export const externalDataApi = {
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const { error } = await supabase
-        .from('external_media')
+        .from('external_images')
         .delete()
         .eq('id', mediaId);
 
