@@ -118,6 +118,7 @@
         "pdf:start": "node scripts/start-pdf-simple.js",
         "telegram:test": "node scripts/test-telegram-api.js",
         "telegram:setup": "cp env.telegram.example .env.telegram.local",
+        "telegram:webhook": "node scripts/setup-telegram-webhook.js",
         "db:migrate": "echo 'Run the SQL migration manually in Supabase dashboard'",
         "db:rollback": "echo 'Run the rollback SQL manually in Supabase dashboard'",
         "test": "jest",
