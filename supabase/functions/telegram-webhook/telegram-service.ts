@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { ImageCompressor, type CompressionOptions } from './image-compressor.ts';
+import { ImageCompressor } from './image-compressor.ts';
 
 // Configuration
 const TELEGRAM_API_BASE = 'https://api.telegram.org/bot';
@@ -42,9 +42,9 @@ export class TelegramService {
   async downloadFile(
     fileId: string,
     mediaType: string = 'image'
-  ): Promise<{ 
-    originalPath: string; 
-    displayPath: string; 
+  ): Promise<{
+    originalPath: string;
+    displayPath: string;
     fileInfo: any;
     compressionStats?: any;
   }> {
@@ -94,7 +94,9 @@ export class TelegramService {
         });
 
       if (originalUploadError) {
-        throw new Error(`Original storage upload failed: ${originalUploadError.message}`);
+        throw new Error(
+          `Original storage upload failed: ${originalUploadError.message}`
+        );
       }
 
       let compressionStats: any = null;
@@ -103,8 +105,9 @@ export class TelegramService {
       if (this.isImageType(mimeType)) {
         try {
           const imageCompressor = ImageCompressor.getInstance();
-          const compressionOptions = imageCompressor.getCompressionOptionsForType(mediaType);
-          
+          const compressionOptions =
+            imageCompressor.getCompressionOptionsForType(mediaType);
+
           const compressedImage = await imageCompressor.compressImage(
             uint8Array,
             mimeType,
@@ -120,7 +123,9 @@ export class TelegramService {
             });
 
           if (displayUploadError) {
-            console.warn(`Display storage upload failed: ${displayUploadError.message}`);
+            console.warn(
+              `Display storage upload failed: ${displayUploadError.message}`
+            );
             // On continue sans l'image display, l'original suffit
           } else {
             compressionStats = {
@@ -132,7 +137,10 @@ export class TelegramService {
             };
           }
         } catch (compressionError) {
-          console.warn('Image compression failed, using original:', compressionError);
+          console.warn(
+            'Image compression failed, using original:',
+            compressionError
+          );
           // En cas d'échec de compression, on continue avec l'original
         }
       }
@@ -149,7 +157,6 @@ export class TelegramService {
         },
         compressionStats,
       };
-
     } catch (error) {
       console.error('Error downloading file:', error);
       throw error;
@@ -327,7 +334,7 @@ export class TelegramService {
     return SUPPORTED_IMAGE_TYPES.includes(mimeType);
   }
 
-    /**
+  /**
    * Obtient l'URL publique d'un fichier stocké
    */
   async getPublicUrl(filePath: string, bucketName?: string): Promise<string> {
@@ -336,7 +343,7 @@ export class TelegramService {
       const { data } = this.supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
-      
+
       return data.publicUrl;
     } catch (error) {
       console.error('Error getting public URL:', error);

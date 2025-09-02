@@ -15,6 +15,7 @@ import { secureImageUpload } from '../utils/secure-image-upload';
 import { supabaseApi } from '../utils/supabase-api';
 import { supabase } from '../utils/supabase/client';
 import { PastAlbumsList } from './PastAlbumsList';
+import { ExternalDataSourcesManager } from './ExternalDataSourcesManager';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -654,6 +655,24 @@ export function SettingsScreen({
           </CardHeader>
           <CardContent>
             <PastAlbumsList familyId={family.id} />
+          </CardContent>
+        </Card>
+
+        {/* External Data Sources */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              Sources de Données Externes
+            </CardTitle>
+            <CardDescription>
+              Configurez des sources externes pour importer automatiquement des médias dans votre album familial
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ExternalDataSourcesManager familyId={family.id} />
           </CardContent>
         </Card>
 
