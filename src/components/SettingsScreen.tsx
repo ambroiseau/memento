@@ -15,7 +15,7 @@ import { secureImageUpload } from '../utils/secure-image-upload';
 import { supabaseApi } from '../utils/supabase-api';
 import { supabase } from '../utils/supabase/client';
 import { PastAlbumsList } from './PastAlbumsList';
-import { ExternalDataSourcesManager } from './ExternalDataSourcesManager';
+import { ExternalDataSourcesManager } from './ExternalDataSources/ExternalDataSourcesManager';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -672,7 +672,10 @@ export function SettingsScreen({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ExternalDataSourcesManager familyId={family.id} />
+            <ExternalDataSourcesManager 
+              familyId={family.id} 
+              userRole={family.createdBy === user.id ? 'admin' : 'member'} 
+            />
           </CardContent>
         </Card>
 
