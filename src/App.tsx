@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { AuthCallback } from './components/AuthCallback';
 import { CreatePost } from './components/CreatePost';
 import { FeedScreen } from './components/FeedScreen';
 import { ImageGallery } from './components/ImageGallery';
@@ -15,6 +16,7 @@ import { supabase } from './utils/supabase/client';
 export default function App() {
   const state = useAppState();
   const actions = useAppActions(state);
+  const [isAuthCallback, setIsAuthCallback] = useState(false);
 
   const { isLoading, setIsLoading, setUser, setAccessToken, setCurrentScreen } =
     state;
@@ -23,6 +25,13 @@ export default function App() {
   useEffect(() => {
     // Initialize PWA features
     initializePWA().catch(console.error);
+
+    // Check if we're on the auth callback route
+    const path = window.location.pathname;
+    if (path === '/auth/callback') {
+      setIsAuthCallback(true);
+      return;
+    }
 
     const checkSession = async () => {
       try {
@@ -46,6 +55,11 @@ export default function App() {
     };
     checkSession();
   }, []);
+
+  // Show auth callback screen if we're on that route
+  if (isAuthCallback) {
+    return <AuthCallback />;
+  }
 
   if (isLoading) {
     return (

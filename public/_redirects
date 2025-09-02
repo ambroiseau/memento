@@ -1,3 +1,4 @@
 # Netlify redirects for SPA
 # Redirect all routes to index.html except for static assets
+/auth/callback    /index.html   200
 /*    /index.html   200
