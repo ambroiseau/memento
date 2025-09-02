@@ -45,10 +45,7 @@ const generateCSP = () => {
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
     'form-action': ["'self'"],
-    'frame-ancestors': ["'self'"],
     'upgrade-insecure-requests': [],
-    // ✅ SECURITY: Add basic security headers (compatible)
-    'referrer-policy': ['strict-origin-when-cross-origin'],
   };
 
   // Add development-specific policies
