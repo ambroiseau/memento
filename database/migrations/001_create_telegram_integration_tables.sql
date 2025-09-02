@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS external_posts (
 -- Ajouter les nouvelles colonnes à post_images existant
 ALTER TABLE post_images 
 ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'APP_UPLOAD' CHECK (source IN ('APP_UPLOAD', 'TELEGRAM', 'WHATSAPP', 'EMAIL', 'API', 'IMPORT')),
-ADD COLUMN IF NOT EXISTS external_post_id UUID REFERENCES external_posts(id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS external_post_id UUID REFERENCES external_posts(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS family_id UUID REFERENCES families(id) ON DELETE CASCADE;
 
 -- Index pour optimiser les performances
 CREATE INDEX IF NOT EXISTS idx_external_data_sources_family_id ON external_data_sources(family_id);
@@ -54,9 +55,10 @@ CREATE INDEX IF NOT EXISTS idx_external_posts_source_id ON external_posts(source
 CREATE INDEX IF NOT EXISTS idx_external_posts_source_type ON external_posts(source_type);
 CREATE INDEX IF NOT EXISTS idx_external_posts_imported_at ON external_posts(imported_at);
 
--- Index pour la nouvelle colonne source dans post_images
+-- Index pour les nouvelles colonnes dans post_images
 CREATE INDEX IF NOT EXISTS idx_post_images_source ON post_images(source);
 CREATE INDEX IF NOT EXISTS idx_post_images_external_post_id ON post_images(external_post_id);
+CREATE INDEX IF NOT EXISTS idx_post_images_family_id ON post_images(family_id);
 
 -- Trigger pour mettre à jour updated_at automatiquement
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -117,3 +119,4 @@ COMMENT ON COLUMN external_posts.external_id IS 'ID unique de la source externe 
 COMMENT ON COLUMN external_posts.metadata IS 'Métadonnées additionnelles (ex: sender, timestamp, etc.)';
 COMMENT ON COLUMN post_images.source IS 'Origine du média: APP_UPLOAD, TELEGRAM, WHATSAPP, EMAIL, API, IMPORT';
 COMMENT ON COLUMN post_images.external_post_id IS 'Référence vers external_posts si le média vient d\'une source externe';
+COMMENT ON COLUMN post_images.family_id IS 'Référence directe vers la famille pour les médias externes (sans post)';
