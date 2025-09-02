@@ -209,10 +209,14 @@ export const externalDataApi = {
       const offset = (page - 1) * limit;
 
       const { data, error, count } = await supabase
-        .from('external_images')
-        .select('*', { count: 'exact' })
-        .eq('source_id', sourceId)
-        .order('imported_at', { ascending: false })
+        .from('post_images')
+        .select(`
+          *,
+          external_posts!inner(*)
+        `, { count: 'exact' })
+        .eq('external_posts.source_id', sourceId)
+        .eq('source', 'TELEGRAM')
+        .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
       if (error) {
@@ -246,7 +250,7 @@ export const externalDataApi = {
   },
 
   /**
-   * Récupérer tous les médias d'une famille
+   * Récupérer tous les médias externes d'une famille
    */
   getFamilyExternalMedia: async (
     familyId: string,
@@ -257,10 +261,14 @@ export const externalDataApi = {
       const offset = (page - 1) * limit;
 
       const { data, error, count } = await supabase
-        .from('external_images')
-        .select('*', { count: 'exact' })
+        .from('post_images')
+        .select(`
+          *,
+          external_posts(*)
+        `, { count: 'exact' })
         .eq('family_id', familyId)
-        .order('imported_at', { ascending: false })
+        .eq('source', 'TELEGRAM')
+        .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
       if (error) {
@@ -301,9 +309,10 @@ export const externalDataApi = {
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const { error } = await supabase
-        .from('external_images')
+        .from('post_images')
         .delete()
-        .eq('id', mediaId);
+        .eq('id', mediaId)
+        .eq('source', 'TELEGRAM');
 
       if (error) {
         console.error('Error deleting external media:', error);
