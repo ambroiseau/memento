@@ -9,10 +9,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS external_data_sources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('telegram', 'whatsapp', 'email')),
+    source_type TEXT NOT NULL CHECK (source_type IN ('telegram', 'whatsapp', 'email')),
     name TEXT NOT NULL,
     config JSONB NOT NULL,
     is_active BOOLEAN DEFAULT true,
+    created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     last_sync_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -47,7 +48,7 @@ ADD COLUMN IF NOT EXISTS family_id UUID REFERENCES families(id) ON DELETE CASCAD
 
 -- Index pour optimiser les performances
 CREATE INDEX IF NOT EXISTS idx_external_data_sources_family_id ON external_data_sources(family_id);
-CREATE INDEX IF NOT EXISTS idx_external_data_sources_type ON external_data_sources(type);
+CREATE INDEX IF NOT EXISTS idx_external_data_sources_type ON external_data_sources(source_type);
 CREATE INDEX IF NOT EXISTS idx_external_data_sources_active ON external_data_sources(is_active);
 
 CREATE INDEX IF NOT EXISTS idx_external_posts_family_id ON external_posts(family_id);

@@ -1,13 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Bot, MessageCircle, Mail, Settings, RefreshCw, Trash2, Eye, EyeOff } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Separator } from '../ui/separator';
-import { Alert, AlertDescription } from '../ui/alert';
+import {
+  Bot,
+  Eye,
+  EyeOff,
+  Mail,
+  MessageCircle,
+  Plus,
+  RefreshCw,
+  Settings,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import type {
+  ExternalDataSource,
+  ExternalMedia,
+} from '../../types/telegram-integration';
 import { externalDataApi } from '../../utils/external-data-api';
+import { Alert, AlertDescription } from '../ui/alert';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../ui/card';
 import { TelegramSourceConfig } from './TelegramSourceConfig';
-import type { ExternalDataSource, ExternalMedia } from '../../types/telegram-integration';
 
 interface ExternalDataSourcesManagerProps {
   familyId: string;
@@ -21,17 +39,33 @@ export function ExternalDataSourcesManager({
   const [sources, setSources] = useState<ExternalDataSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // UI state
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingSource, setEditingSource] = useState<ExternalDataSource | null>(null);
+  const [editingSource, setEditingSource] = useState<ExternalDataSource | null>(
+    null
+  );
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
-  
+
   // Media state
-  const [sourceMedia, setSourceMedia] = useState<Record<string, ExternalMedia[]>>({});
+  const [sourceMedia, setSourceMedia] = useState<
+    Record<string, ExternalMedia[]>
+  >({});
   const [mediaLoading, setMediaLoading] = useState<Record<string, boolean>>({});
 
   const isAdmin = userRole === 'admin';
+
+  // Debug: afficher les valeurs dans la console au montage
+  useEffect(() => {
+    console.log('🔍 ExternalDataSourcesManager Debug:', {
+      userRole,
+      userRoleType: typeof userRole,
+      isAdmin,
+      familyId,
+      comparison: userRole === 'admin',
+      strictComparison: userRole === 'admin',
+    });
+  }, [userRole, familyId]);
 
   // Charger les sources de données
   const loadSources = async () => {
@@ -39,8 +73,9 @@ export function ExternalDataSourcesManager({
     setError(null);
 
     try {
-      const result = await externalDataApi.getFamilyExternalDataSources(familyId);
-      
+      const result =
+        await externalDataApi.getFamilyExternalDataSources(familyId);
+
       if (result.success) {
         setSources(result.data || []);
       } else {
@@ -62,7 +97,7 @@ export function ExternalDataSourcesManager({
 
     try {
       const result = await externalDataApi.getExternalMedia(sourceId, 1, 10);
-      
+
       if (result.success) {
         setSourceMedia(prev => ({
           ...prev,
@@ -80,14 +115,14 @@ export function ExternalDataSourcesManager({
   const handleSaveSource = (source: ExternalDataSource) => {
     if (editingSource) {
       // Mise à jour
-      setSources(prev => prev.map(s => s.id === source.id ? source : s));
+      setSources(prev => prev.map(s => (s.id === source.id ? source : s)));
       setEditingSource(null);
     } else {
       // Création
       setSources(prev => [source, ...prev]);
       setShowCreateForm(false);
     }
-    
+
     // Recharger les sources pour avoir les données à jour
     loadSources();
   };
@@ -96,7 +131,7 @@ export function ExternalDataSourcesManager({
   const handleDeleteSource = async (sourceId: string) => {
     try {
       const result = await externalDataApi.deleteExternalDataSource(sourceId);
-      
+
       if (result.success) {
         setSources(prev => prev.filter(s => s.id !== sourceId));
         setSourceMedia(prev => {
@@ -116,12 +151,15 @@ export function ExternalDataSourcesManager({
   // Activer/désactiver une source
   const handleToggleSource = async (sourceId: string, isActive: boolean) => {
     try {
-      const result = await externalDataApi.toggleExternalDataSource(sourceId, isActive);
-      
+      const result = await externalDataApi.toggleExternalDataSource(
+        sourceId,
+        isActive
+      );
+
       if (result.success && result.data) {
-        setSources(prev => prev.map(s => 
-          s.id === sourceId ? { ...s, is_active: isActive } : s
-        ));
+        setSources(prev =>
+          prev.map(s => (s.id === sourceId ? { ...s, is_active: isActive } : s))
+        );
       } else {
         setError(result.error || 'Erreur lors de la modification');
       }
@@ -192,7 +230,7 @@ export function ExternalDataSourcesManager({
             Configurez des sources pour récupérer automatiquement des médias
           </p>
         </div>
-        
+
         {isAdmin && (
           <Button
             onClick={() => setShowCreateForm(true)}
@@ -236,9 +274,12 @@ export function ExternalDataSourcesManager({
         <Card>
           <CardContent className="p-8 text-center">
             <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Aucune source configurée</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              Aucune source configurée
+            </h3>
             <p className="text-muted-foreground mb-4">
-              Configurez votre première source pour commencer à récupérer des médias automatiquement
+              Configurez votre première source pour commencer à récupérer des
+              médias automatiquement
             </p>
             {isAdmin && (
               <Button onClick={() => setShowCreateForm(true)}>
@@ -250,7 +291,7 @@ export function ExternalDataSourcesManager({
         </Card>
       ) : (
         <div className="grid gap-4">
-          {sources.map((source) => (
+          {sources.map(source => (
             <Card key={source.id} className="overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -270,22 +311,28 @@ export function ExternalDataSourcesManager({
                       </CardDescription>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Badge variant={source.is_active ? 'default' : 'secondary'}>
                       {source.is_active ? 'Active' : 'Inactive'}
                     </Badge>
-                    
+
                     {isAdmin && (
                       <div className="flex gap-1">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleToggleSource(source.id, !source.is_active)}
+                          onClick={() =>
+                            handleToggleSource(source.id, !source.is_active)
+                          }
                         >
-                          {source.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {source.is_active ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </Button>
-                        
+
                         <Button
                           variant="outline"
                           size="sm"
@@ -293,7 +340,7 @@ export function ExternalDataSourcesManager({
                         >
                           <Settings className="h-4 w-4" />
                         </Button>
-                        
+
                         <Button
                           variant="outline"
                           size="sm"
@@ -317,7 +364,9 @@ export function ExternalDataSourcesManager({
                   {source.last_sync_at && (
                     <div>
                       <span className="font-medium">Dernière sync :</span>{' '}
-                      {new Date(source.last_sync_at).toLocaleDateString('fr-FR')}
+                      {new Date(source.last_sync_at).toLocaleDateString(
+                        'fr-FR'
+                      )}
                     </div>
                   )}
                 </div>
@@ -329,7 +378,11 @@ export function ExternalDataSourcesManager({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSelectedSource(selectedSource === source.id ? null : source.id)}
+                      onClick={() =>
+                        setSelectedSource(
+                          selectedSource === source.id ? null : source.id
+                        )
+                      }
                     >
                       {selectedSource === source.id ? 'Masquer' : 'Afficher'}
                     </Button>
@@ -344,9 +397,11 @@ export function ExternalDataSourcesManager({
                         </div>
                       ) : sourceMedia[source.id]?.length > 0 ? (
                         <div className="grid grid-cols-2 gap-2">
-                          {sourceMedia[source.id].slice(0, 6).map((media) => (
+                          {sourceMedia[source.id].slice(0, 6).map(media => (
                             <div key={media.id} className="text-xs">
-                              <div className="font-medium">{media.media_type}</div>
+                              <div className="font-medium">
+                                {media.media_type}
+                              </div>
                               <div className="text-muted-foreground truncate">
                                 {media.caption || 'Sans description'}
                               </div>

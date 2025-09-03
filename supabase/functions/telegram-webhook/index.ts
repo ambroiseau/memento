@@ -130,7 +130,7 @@ async function processTelegramMessage(message: TelegramMessage) {
     const photo = message.photo[message.photo.length - 1];
 
     try {
-      await processPhoto(message.chat.id, photo, message.caption);
+      await processPhoto(message.chat.id, photo, message.caption, message);
       return {
         success: true,
         message: 'Photo processed successfully',
@@ -156,7 +156,8 @@ async function processTelegramMessage(message: TelegramMessage) {
 async function processPhoto(
   chatId: number,
   photo: TelegramPhoto,
-  caption?: string
+  caption?: string,
+  message?: TelegramMessage
 ) {
   console.log('Processing photo:', photo.file_id);
   console.log('Caption received:', caption || 'No caption');
@@ -206,7 +207,7 @@ async function processPhoto(
       .from('posts')
       .insert({
         family_id: family.id,
-        created_by: family.created_by,
+        user_id: family.created_by,
         source_type: 'telegram',
         content_text: caption || null, // Caption dans le post
         metadata: {
@@ -214,7 +215,17 @@ async function processPhoto(
           message_id: photo.file_id,
           file_unique_id: photo.file_unique_id,
           caption: caption,
-          telegram_user: 'Unknown',
+          telegram_user: message?.from
+            ? `${message.from.first_name} ${message.from.last_name || ''}`.trim()
+            : 'Unknown',
+          telegram_user_info: message?.from
+            ? {
+                first_name: message.from.first_name,
+                last_name: message.from.last_name,
+                username: message.from.username,
+                telegram_id: message.from.id,
+              }
+            : null,
           timestamp: new Date().toISOString(),
         },
       })
@@ -281,7 +292,7 @@ async function findFamilyByChatId(supabase: any, chatId: string) {
 
   console.log('Found external data source:', data.id);
 
-  // Récupérer les informations de la famille
+  // Récupérer les informations de la famille ET l'admin
   const { data: familyData, error: familyError } = await supabase
     .from('families')
     .select('*')
@@ -293,7 +304,24 @@ async function findFamilyByChatId(supabase: any, chatId: string) {
     return null;
   }
 
-  return familyData;
+  // Récupérer l'admin de la famille
+  const { data: adminData, error: adminError } = await supabase
+    .from('family_members')
+    .select('user_id')
+    .eq('family_id', data.family_id)
+    .eq('role', 'admin')
+    .single();
+
+  if (adminError || !adminData) {
+    console.log('Error finding family admin:', adminError?.message);
+    return null;
+  }
+
+  // Ajouter l'admin à l'objet famille
+  return {
+    ...familyData,
+    created_by: adminData.user_id,
+  };
 }
 
 /**

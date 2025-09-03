@@ -11,7 +11,11 @@ export class MediaProcessor {
     supabaseServiceKey: string
   ) {
     this.supabase = createClient(supabaseUrl, supabaseServiceKey);
-    this.telegramService = new TelegramService(botToken, supabaseUrl, supabaseServiceKey);
+    this.telegramService = new TelegramService(
+      botToken,
+      supabaseUrl,
+      supabaseServiceKey
+    );
   }
 
   /**
@@ -19,28 +23,31 @@ export class MediaProcessor {
    */
   async processMediaItems(chatId: string, mediaItems: any[]): Promise<any[]> {
     const results = [];
-    
+
     for (const item of mediaItems) {
       try {
         const result = await this.processSingleMediaItem(chatId, item);
         results.push({ success: true, data: result });
       } catch (error) {
         console.error(`Error processing media item ${item.file_id}:`, error);
-        results.push({ 
-          success: false, 
+        results.push({
+          success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-          file_id: item.file_id 
+          file_id: item.file_id,
         });
       }
     }
-    
+
     return results;
   }
 
   /**
    * Traite un seul élément média
    */
-  private async processSingleMediaItem(chatId: string, mediaItem: any): Promise<any> {
+  private async processSingleMediaItem(
+    chatId: string,
+    mediaItem: any
+  ): Promise<any> {
     try {
       // 1. Identifier la famille basée sur le chat_id
       const family = await this.findFamilyByChatId(chatId);
@@ -49,34 +56,46 @@ export class MediaProcessor {
       }
 
       // 2. Vérifier si le média existe déjà
-      const existingMedia = await this.checkExistingMedia(mediaItem.file_unique_id, family.id);
+      const existingMedia = await this.checkExistingMedia(
+        mediaItem.file_unique_id,
+        family.id
+      );
       if (existingMedia) {
         console.log(`Media already exists: ${mediaItem.file_unique_id}`);
         return existingMedia;
       }
 
       // 3. Télécharger le fichier depuis Telegram avec double stockage
-      const { originalPath, displayPath, fileInfo, compressionStats } = 
-        await this.telegramService.downloadFile(mediaItem.file_id, mediaItem.type);
-      
+      const { originalPath, displayPath, fileInfo, compressionStats } =
+        await this.telegramService.downloadFile(
+          mediaItem.file_id,
+          mediaItem.type
+        );
+
       // 4. Vérifier le type de fichier
       if (!this.telegramService.isFileTypeSupported(fileInfo.mime_type)) {
         throw new Error(`Unsupported file type: ${fileInfo.mime_type}`);
       }
 
       // 5. Obtenir les URLs publiques
-      const originalUrl = await this.telegramService.getPublicUrl(originalPath, 'post-images-original');
-      const displayUrl = await this.telegramService.getPublicUrl(displayPath, 'post-images-display');
+      const originalUrl = await this.telegramService.getPublicUrl(
+        originalPath,
+        'post-images-original'
+      );
+      const displayUrl = await this.telegramService.getPublicUrl(
+        displayPath,
+        'post-images-display'
+      );
 
       // 6. Sauvegarder dans la base de données
       const savedMedia = await this.saveMediaToDatabase(
-        family.id, 
-        chatId, 
-        mediaItem, 
-        originalPath, 
+        family.id,
+        chatId,
+        mediaItem,
+        originalPath,
         displayPath,
-        originalUrl, 
-        displayUrl, 
+        originalUrl,
+        displayUrl,
         fileInfo,
         compressionStats
       );
@@ -85,7 +104,6 @@ export class MediaProcessor {
       await this.updateSourceLastSync(chatId, family.id);
 
       return savedMedia;
-
     } catch (error) {
       console.error('Error processing single media item:', error);
       throw error;
@@ -99,7 +117,8 @@ export class MediaProcessor {
     try {
       const { data, error } = await this.supabase
         .from('external_data_sources')
-        .select(`
+        .select(
+          `
           id,
           family_id,
           families (
@@ -107,15 +126,18 @@ export class MediaProcessor {
             name,
             avatar
           )
-        `)
-        .eq('type', 'telegram')
+        `
+        )
+        .eq('source_type', 'telegram')
         .eq('config->>chat_id', chatId)
         .eq('is_active', true)
         .single();
 
       if (error) {
         if (error.code === 'PGRST116') {
-          throw new Error(`No active Telegram source found for chat ID: ${chatId}`);
+          throw new Error(
+            `No active Telegram source found for chat ID: ${chatId}`
+          );
         }
         throw error;
       }
@@ -130,7 +152,10 @@ export class MediaProcessor {
   /**
    * Vérifie si un média existe déjà
    */
-  private async checkExistingMedia(fileUniqueId: string, familyId: string): Promise<any> {
+  private async checkExistingMedia(
+    fileUniqueId: string,
+    familyId: string
+  ): Promise<any> {
     try {
       const { data, error } = await this.supabase
         .from('external_media')
@@ -201,7 +226,6 @@ export class MediaProcessor {
 
       console.log(`Media saved successfully: ${data.id}`);
       return data;
-
     } catch (error) {
       console.error('Error saving media to database:', error);
       throw error;
@@ -217,7 +241,7 @@ export class MediaProcessor {
         .from('external_data_sources')
         .select('id')
         .eq('family_id', familyId)
-        .eq('type', 'telegram')
+        .eq('source_type', 'telegram')
         .eq('config->>chat_id', chatId)
         .eq('is_active', true)
         .single();
@@ -236,13 +260,16 @@ export class MediaProcessor {
   /**
    * Met à jour la dernière synchronisation d'une source
    */
-  private async updateSourceLastSync(chatId: string, familyId: string): Promise<void> {
+  private async updateSourceLastSync(
+    chatId: string,
+    familyId: string
+  ): Promise<void> {
     try {
       const { error } = await this.supabase
         .from('external_data_sources')
         .update({ last_sync_at: new Date().toISOString() })
         .eq('family_id', familyId)
-        .eq('type', 'telegram')
+        .eq('source_type', 'telegram')
         .eq('config->>chat_id', chatId);
 
       if (error) {
@@ -280,7 +307,7 @@ export class MediaProcessor {
       // 1. Lister tous les fichiers dans le storage
       // 2. Vérifier s'ils ont une entrée en base
       // 3. Supprimer les fichiers orphelins
-      
+
       console.log('Cleanup orphaned media - not implemented yet');
       return 0;
     } catch (error) {
@@ -318,10 +345,13 @@ export class MediaProcessor {
       // Activité récente (7 derniers jours)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
+
       stats.recent_activity = data
         .filter(media => new Date(media.created_at) > sevenDaysAgo)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
         .slice(0, 10);
 
       return stats;

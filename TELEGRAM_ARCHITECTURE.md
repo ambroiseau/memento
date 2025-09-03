@@ -7,20 +7,25 @@ L'intégration Telegram a été refactorisée pour améliorer la sécurité et l
 ## Architecture
 
 ### 1. Configuration Centralisée
+
 - **Bot Token** : Stocké dans les variables d'environnement de la fonction Edge
 - **Chat ID** : Configuré par famille dans l'interface utilisateur
 
 ### 2. Sécurité
+
 - ✅ **Bot Token** : Jamais exposé dans l'interface utilisateur
 - ✅ **Variables d'environnement** : Stockées de manière sécurisée dans Supabase
 - ✅ **Accès restreint** : Seuls les admins de famille peuvent configurer les sources
 
 ### 3. Configuration par Famille
+
 Chaque famille configure uniquement :
+
 - **Nom de la source** (ex: "Family Telegram Bot")
 - **Chat ID** (ex: -1001234567890)
 
 ### 4. Stockage en Base
+
 ```sql
 -- Table external_data_sources
 {
@@ -45,10 +50,12 @@ Chaque famille configure uniquement :
 ## Configuration
 
 ### Pour les Développeurs
+
 1. Définir `TELEGRAM_BOT_TOKEN` dans les secrets de la fonction Edge
 2. Définir `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY`
 
 ### Pour les Utilisateurs
+
 1. Aller dans Settings > External Data Sources
 2. Cliquer sur "Telegram"
 3. Entrer le nom de la source
