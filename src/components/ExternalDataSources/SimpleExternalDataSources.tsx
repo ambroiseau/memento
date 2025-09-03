@@ -10,7 +10,6 @@ interface SimpleExternalDataSourcesProps {
 
 interface TelegramConfig {
   sourceName: string;
-  botToken: string;
   chatId: string;
 }
 
@@ -19,7 +18,6 @@ interface ExternalDataSource {
   name: string;
   source_type: string;
   config: {
-    bot_token?: string;
     chat_id?: string;
   };
   is_active: boolean;
@@ -43,7 +41,6 @@ export function SimpleExternalDataSources({
   // Form state
   const [config, setConfig] = useState<TelegramConfig>({
     sourceName: '',
-    botToken: '',
     chatId: '',
   });
 
@@ -116,8 +113,8 @@ export function SimpleExternalDataSources({
   };
 
   const testTelegramConnection = async () => {
-    if (!config.botToken || !config.chatId) {
-      setTestMessage('Please fill in Bot Token and Chat ID first');
+    if (!config.chatId) {
+      setTestMessage('Please enter the chat ID first');
       setTestResult('error');
       return;
     }
@@ -127,58 +124,28 @@ export function SimpleExternalDataSources({
     setTestMessage('');
 
     try {
-      // Test the bot token by getting bot info
-      const botInfoResponse = await fetch(
-        `https://api.telegram.org/bot${config.botToken}/getMe`
-      );
-
-      if (!botInfoResponse.ok) {
-        throw new Error('Invalid bot token');
-      }
-
-      const botInfo = await botInfoResponse.json();
-
-      if (!botInfo.ok) {
-        throw new Error(botInfo.description || 'Bot token validation failed');
-      }
-
-      // Test sending a message to the chat
-      const messageResponse = await fetch(
-        `https://api.telegram.org/bot${config.botToken}/sendMessage`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chat_id: config.chatId,
-            text: '🔗 Connection test successful! This bot is now connected to your family album.',
-            parse_mode: 'HTML',
-          }),
-        }
-      );
-
-      if (!messageResponse.ok) {
-        const errorData = await messageResponse.json();
-        throw new Error(errorData.description || 'Failed to send test message');
+      // Test the chat ID format (should be a number, can be negative for groups)
+      const chatId = parseInt(config.chatId);
+      if (isNaN(chatId)) {
+        throw new Error('Chat ID must be a valid number');
       }
 
       setTestResult('success');
       setTestMessage(
-        `✅ Connection successful! Bot "${botInfo.result.username}" is ready.`
+        `✅ Chat ID "${chatId}" is valid and ready to be configured.`
       );
     } catch (error) {
-      console.error('Telegram connection test failed:', error);
+      console.error('Chat ID validation failed:', error);
       setTestResult('error');
-      setTestMessage(`❌ Connection failed: ${error.message}`);
+      setTestMessage(`❌ Validation failed: ${error.message}`);
     } finally {
       setIsTesting(false);
     }
   };
 
   const saveTelegramSource = async () => {
-    if (!config.sourceName || !config.botToken || !config.chatId) {
-      setTestMessage('Please fill in all fields');
+    if (!config.sourceName || !config.chatId) {
+      setTestMessage('Please fill in source name and chat ID');
       setTestResult('error');
       return;
     }
@@ -194,22 +161,25 @@ export function SimpleExternalDataSources({
           source_type: 'telegram',
           name: config.sourceName,
           config: {
-            bot_token: config.botToken,
             chat_id: config.chatId,
           },
           is_active: true,
           created_by: userId,
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         throw error;
       }
 
-      setTestMessage('✅ Telegram source saved successfully!');
       setTestResult('success');
+      setTestMessage(
+        `✅ Telegram source "${config.sourceName}" configured successfully!`
+      );
 
-      // Recharger les sources existantes
-      const { data: newSources, error: fetchError } = await supabase
+      // Recharger les sources
+      const { data: updatedSources, error: fetchError } = await supabase
         .from('external_data_sources')
         .select('*')
         .eq('family_id', familyId)
@@ -217,13 +187,13 @@ export function SimpleExternalDataSources({
         .order('created_at', { ascending: false });
 
       if (!fetchError) {
-        setExistingSources(newSources || []);
+        setExistingSources(updatedSources || []);
       }
 
       // Reset form after successful save
       setTimeout(() => {
         setShowConfigForm(false);
-        setConfig({ sourceName: '', botToken: '', chatId: '' });
+        setConfig({ sourceName: '', chatId: '' });
         setTestResult(null);
         setTestMessage('');
       }, 2000);
@@ -239,7 +209,6 @@ export function SimpleExternalDataSources({
   const editSource = (source: ExternalDataSource) => {
     setConfig({
       sourceName: source.name,
-      botToken: source.config.bot_token || '',
       chatId: source.config.chat_id || '',
     });
     setShowConfigForm(true);
@@ -327,7 +296,7 @@ export function SimpleExternalDataSources({
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488" />
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.242.489 1.67.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488" />
               </svg>
               <span className="text-sm font-medium">WhatsApp</span>
               <Badge variant="secondary" className="text-xs">
@@ -342,7 +311,7 @@ export function SimpleExternalDataSources({
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
-                <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.364V5.457c0-.904.732-1.636 1.636-1.636h3.819v9.273L12 7.27l6.545 4.91V3.82h3.819A1.636 1.636 0 0 1 24 5.457z" />
+                <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 0 0 1 0 19.364V5.457c0-.904.732-1.636 1.636-1.636h3.819v9.273L12 7.27l6.545 4.91V3.82h3.819A1.636 1.636 0 0 1 24 5.457z" />
               </svg>
               <span className="text-sm font-medium">Gmail</span>
               <Badge variant="secondary" className="text-xs">
@@ -433,19 +402,6 @@ export function SimpleExternalDataSources({
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Bot Token
-              </label>
-              <input
-                type="password"
-                placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-                className="w-full p-2 border rounded"
-                value={config.botToken}
-                onChange={e => handleInputChange('botToken', e.target.value)}
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-medium mb-2">Chat ID</label>
               <input
                 type="text"
@@ -454,6 +410,9 @@ export function SimpleExternalDataSources({
                 value={config.chatId}
                 onChange={e => handleInputChange('chatId', e.target.value)}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                The bot token is configured centrally and securely.
+              </p>
             </div>
 
             {/* Test Result Message */}
@@ -488,7 +447,7 @@ export function SimpleExternalDataSources({
                 variant="outline"
                 onClick={() => {
                   setShowConfigForm(false);
-                  setConfig({ sourceName: '', botToken: '', chatId: '' });
+                  setConfig({ sourceName: '', chatId: '' });
                   setTestResult(null);
                   setTestMessage('');
                 }}
