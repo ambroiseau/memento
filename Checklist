@@ -21,6 +21,7 @@ _"Pose moi des questions au lieu de te lancer dans l'implémentation d'une idée
 
 ### 3. Déploiement & Intégration
 
+- Toujours merger avant de mettre en production, et ne jamais mettre en production sans avoir testé au préalable.
 - **Vercel** est utilisé pour le déploiement de l'application (API, webhooks, etc.).
 - **Railway** est utilisé pour le déploiement du pdf generator
 - **Ne jamais déployer directement sur `main`** sans review et validation CI.
