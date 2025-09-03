@@ -14,8 +14,8 @@ import toast from 'react-hot-toast';
 import { secureImageUpload } from '../utils/secure-image-upload';
 import { supabaseApi } from '../utils/supabase-api';
 import { supabase } from '../utils/supabase/client';
+import { SimpleExternalDataSources } from './ExternalDataSources/SimpleExternalDataSources';
 import { PastAlbumsList } from './PastAlbumsList';
-import { ExternalDataSourcesManager } from './ExternalDataSources/ExternalDataSourcesManager';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -658,24 +658,32 @@ export function SettingsScreen({
           </CardContent>
         </Card>
 
-        {/* External Data Sources */}
+        {/* External Data Sources - Version simple */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
               </svg>
-              Sources de Données Externes
+              External Data Sources
             </CardTitle>
             <CardDescription>
-              Configurez des sources externes pour importer automatiquement des médias dans votre album familial
+              Configure external sources to automatically import media into your
+              family album
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ExternalDataSourcesManager 
-              familyId={family.id} 
-              userRole={family.createdBy === user.id ? 'admin' : 'member'} 
-            />
+            <SimpleExternalDataSources familyId={family.id} userId={user.id} />
           </CardContent>
         </Card>
 
