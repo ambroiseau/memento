@@ -101,6 +101,7 @@ export function WelcomeScreen({
 
   // If user is authenticated but not in a family, show family options
   if (user) {
+    console.log('WelcomeScreen: Rendering family options (user authenticated)');
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 to-orange-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6">
@@ -211,6 +212,7 @@ export function WelcomeScreen({
   }
 
   // Authentication screen
+  console.log('WelcomeScreen: Rendering authentication screen (no user)');
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 to-orange-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">

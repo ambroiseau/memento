@@ -237,7 +237,7 @@ export const supabaseApi = {
       `Loading posts for family ${familyId}, page ${page}, limit ${limit}`
     );
 
-    // Get posts with pagination
+    // Get posts with pagination (including Telegram posts)
     const { data: posts, error: postsError } = await supabase
       .from('posts')
       .select('*')
@@ -355,22 +355,38 @@ export const supabaseApi = {
           }
         }
 
+        // Handle Telegram posts (source_type = 'telegram')
+        let authorName = 'Unknown User';
+        let authorAvatar = null;
+
+        if (post.source_type === 'telegram') {
+          // For Telegram posts, extract sender info from metadata
+          const metadata = post.metadata || {};
+          authorName = metadata.telegram_user || 'Telegram User';
+          authorAvatar = null; // Could add Telegram icon later
+        } else if (profile) {
+          // For regular posts, use profile info
+          authorName = profile.name;
+          authorAvatar = avatarUrl;
+        }
+
         return {
           ...post,
           // Map to expected FeedScreen structure
-          author: profile
-            ? {
-                name: profile.name,
-                avatar: avatarUrl,
-              }
-            : { name: 'Unknown User', avatar: null },
+          author: {
+            name: authorName,
+            avatar: authorAvatar,
+          },
           createdAt: post.created_at,
           caption: post.content_text,
           imageUrls: imageUrls,
           reactions: reactionsObj,
           // Keep original fields for compatibility
-          profiles: profile || { name: 'Unknown User', avatar_url: null },
+          profiles: profile || { name: authorName, avatar_url: authorAvatar },
           post_images: images,
+          // Add source info for display
+          source_type: post.source_type,
+          is_telegram: post.source_type === 'telegram',
         };
       })
     );

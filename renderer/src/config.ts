@@ -4,7 +4,16 @@ import { config as dotenvConfig } from 'dotenv';
 dotenvConfig();
 
 export const config = {
-  port: parseInt(process.env.PORT || '3001'),
+  port: (() => {
+    // Force le port 3001, mais permet de le changer via variable d'environnement si nécessaire
+    const envPort = process.env.PORT;
+    if (envPort && envPort !== '3001') {
+      console.log(
+        `⚠️  Port override detected: ${envPort}. Using 3001 instead for consistency.`
+      );
+    }
+    return 3001;
+  })(),
   supabase: {
     url: process.env.SUPABASE_URL!,
     serviceKey: process.env.SUPABASE_SERVICE_KEY!,

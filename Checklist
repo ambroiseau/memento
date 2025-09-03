@@ -1,183 +1,49 @@
 # RULES_CURSOR.md — Règles opérationnelles à respecter **toujours**
 
-> Ces règles s’appliquent à toute action automatisée (code, DB, déploiement, sécurité).
-> Toute exception nécessite une **validation explicite** d’Ambroise (le propriétaire).
+_"Pose moi des questions au lieu de te lancer dans l'implémentation d'une idée stupide"_
+
+### 1. Structure & Cohérence du code
+
+- **Toujours vérifier la structure de la base de données** (tables, colonnes, relations) dans Supabase avant d’implémenter ou d’utiliser un modèle.  
+  _Ne jamais supposer le nom ou la forme d’une table/colonne sans vérification._
+- **Avant de créer un nouveau fichier ou module**, vérifier s’il n’existe pas déjà un fichier équivalent (même fonction, nom différent) dans le projet.  
+  _Chercher par fonctionnalité, pas seulement par nom attendu._
+- **Respecter la structure de dossiers et les conventions de nommage** existantes (voir monorepo, alias, patterns).
+
+### 2. Sécurité & Secrets
+
+- **Ne jamais exposer de secrets** (clé API, JWT, etc.) dans le code, les logs ou les URLs.
+- **Pour le déploiement du Telegram Webhook** (Railway/Supabase Edge) :
+  - **Ne jamais exiger ou vérifier de JWT** dans les requêtes entrantes.
+  - Utiliser uniquement le secret de webhook Telegram pour la validation.
+  - S’assurer que le endpoint n’est pas publicisé inutilement.
+- **Toujours vérifier les policies RLS** et les permissions avant de merger une PR qui touche à la sécurité.
+
+### 3. Déploiement & Intégration
+
+- Toujours merger avant de mettre en production, et ne jamais mettre en production sans avoir testé au préalable.
+- **Vercel** est utilisé pour le déploiement de l'application (API, webhooks, etc.).
+- **Railway** est utilisé pour le déploiement du pdf generator
+- **Ne jamais déployer directement sur `main`** sans review et validation CI.
+- **Préférer les migrations SQL** pour toute évolution de la base (voir `supabase db diff`).
+- **Ne jamais utiliser `supabase db reset` en production** (réservé au local/dev).
+
+### 4. Qualité & Revue
+
+- **Lint, type-check et tests** obligatoires avant toute PR.
+- **Pas de génération massive de code** ou de refacto automatique sans plan d’action validé.
+- **Ne pas modifier les API publiques** sans versionning ou compatibilité rétroactive.
+
+### 5. Documentation & Communication
+
+- **Documenter toute règle ou exception** dans ce fichier (`RULES_CURSOR.md`).
+- **Référencer ce fichier** dans le README et le CONTRIBUTING.
+- **Soumettre un plan d’action** (voir section 13) pour toute évolution majeure ou refonte.
 
 ---
 
-## 0) Principe d’approbation (“**Ask, don’t assume**”)
-
-- **INTERDIT** d’effectuer une action **irréversible** ou **risquée** sans approbation écrite d’Ambroise.
-- Avant toute action risquée, **présenter un plan concis** (but, commandes, risques, rollback) et **attendre le mot-clef** :
-  - **Mot-clef d’approbation** : `GO`
-  - **Mot-clef d’annulation** : `STOP`
-
----
-
-## 1) Production & déploiement
-
-- **NE PAS** pousser en **production** sans :
-  1. déploiement **staging/preview** réussi,
-  2. **tests** et **lint** passés,
-  3. **validation manuelle** d’Ambroise (`APPROUVÉ PAR AMBROISE`).
-
-- Utiliser des **previews** (Vercel) pour chaque PR ; **jamais** de commit direct sur `main`/`prod`.
-- **Changelog** clair et **plan de rollback** (tag précédent + commande de revert) dans la PR.
-- **Ne pas modifier** la config DNS/CDN/cron prod sans plan + approbation.
-
----
-
-## 2) Base de données (Supabase/Postgres)
-
-- **JAMAIS** de **DELETE** massif, **DROP** table/colonne, **TRUNCATE**, **RESET** ou **`supabase db reset`** sur une base **non locale** sans :
-  - un **dump/backup** récent,
-  - un **script de migration réversible**,
-  - l’approbation explicite.
-
-- **Toujours** passer par des **migrations versionnées** (SQL) et **jamais** bricoler direct en prod.
-- Avant de créer/modifier une table/index/contrainte :
-  - Générer un **diff** (`supabase db diff`) et l’inclure dans la PR.
-  - Valider l’**impact perf** (index), la **compatibilité rétro**, et la **réversibilité**.
-  - Vérifier/ajouter **RLS policies**, **permissions** et **contraintes** (NOT NULL, FK, unique).
-
-- **Données** : anonymiser/masquer en seed/dev ; **jamais** extraire de données prod dans le repo.
-- **Accès** : utiliser **roles**/policies ; pas de clés “service_role” côté client.
-
-**Checklist DB (à coller dans la PR)**
-
-- [ ] Migration SQL versionnée + script de rollback
-- [ ] Diff explicite + estimation d’impact (taille table, index)
-- [ ] RLS/Policies mises à jour
-- [ ] Backup/restore vérifiés
-- [ ] Testé sur staging avec données réalistes
-
----
-
-## 3) Sécurité & secrets
-
-- **JAMAIS** exposer de **clefs**/tokens dans le code, commits, logs, issues, captures d’écran.
-- Utiliser **variables d’environnement** fournies par Vercel/Railway/Supabase ; **jamais** commiter `.env*`.
-- **Rotation** immédiate de toute clé soupçonnée d’exposition ; documenter l’incident.
-- Pas d’URL signée longue durée ; **TTL minimal** côté téléchargement privé.
-- **Désactiver** l’indexation publique (robots) des environnements non prod, si pertinent.
-
-**Do & Don’t secrets**
-
-- ✅ `process.env.*` / paramètres chiffrés plateforme
-- ❌ Hard-code, `.env` dans Git, logs avec secrets, partage via Slack public
-
----
-
-## 4) Stockage d’images & PDF
-
-- **Pattern standard** : `original` (privé, HQ) + `display` (public, compressé).
-- Le **front** consomme `display` via CDN ; le **générateur PDF** consomme **uniquement** `original` via URL signée courte.
-- **Interdit** d’appeler `/_next/image` pour générer des PDF (recompression).
-- Toute évolution de buckets/policies ⇒ PR + tests d’accès (public/privé) + approbation.
-
----
-
-## 5) Tâches CRON / jobs
-
-- Jobs **idempotents** (rejouables sans effets indésirables).
-- **Timeouts**, **retries** exponentiels, **journaux** lisibles, **alertes** sur échec.
-- CRON prod **désactivé par défaut** sur un nouveau job ; activer **seulement** après validation sur staging.
-- Si HTML→PDF avec navigateur : exécuter **en worker** (pas Edge), contrôler la mémoire/CPU.
-
----
-
-## 6) Qualité du code & revue
-
-- **Toujours** exécuter : lint, type-check, tests (unitaires/intégration) avant PR.
-- Aucune génération massive de code ou refacto auto **sans** plan + approbation.
-- Respecter la **structure existante** (monorepo, alias, conventions de dossiers).
-- **Ne pas** modifier les contrats d’API publiques sans **versionning** ou **compatibilité rétro**.
-
----
-
-## 7) Dépendances & builds
-
-- **Pas** d’ajout de dépendance lourde sans justification (taille, perf, licences).
-- Geler la version (`~`/`^` contrôlés, ou lockfile) ; **pas** d’updates automatiques majeurs.
-- Vérifier les **licences** (pas de copyleft bloquant sans accord).
-- Build **reproductible** : éviter scripts non déterministes.
-
----
-
-## 8) Observabilité & logs
-
-- **Ne jamais** logger de PII/secrets.
-- Ajouter des **logs structurés** (niveau, corrélation, durée) pour nouvelles features/jobs.
-- Traçage d’erreurs (Sentry/équivalent) activé en staging **avant** la prod.
-
----
-
-## 9) Coûts & performances
-
-- Vérifier **impact egress** avant d’exposer des assets lourds ; préférer AVIF/WebP pour l’écran.
-- Mettre du **cache CDN** (head, `Cache-Control`) adapté ; invalider avec parcimonie.
-- Pour requêtes DB : index requis, pas de full-scan naïf, paginer/streamer si nécessaire.
-
----
-
-## 10) Communication & traçabilité
-
-- Chaque PR contient :
-  - **But** (1–3 lignes), **Plan**, **Risques**, **Rollback**, **Checks** (DB/Tests/Sécu),
-  - Lien vers **preview** et **captures** si UI.
-
-- Toute action hors PR/procédure = **interdite** sans approbation.
-
----
-
-## 11) Actions explicitement **INTERDITES** sans approbation
-
-- Supprimer/modifier des **données** en base au-delà de 100 lignes.
-- **DROP/TRUNCATE/RESET** sur schéma non local.
-- Pousser en **prod** ou modifier la **config** prod (env, DNS, secrets, crons).
-- Exposer publiquement un **bucket**/endpoint privé.
-- Changer les **policies RLS** sans revue.
-- Activer des **CRON** en prod sans période d’observation sur staging.
-
----
-
-## 12) “Definition of Done”
-
-- ✅ Code mergé en `main` **via PR** approuvée
-- ✅ Tests/lint/types **OK**
-- ✅ Migrations DB appliquées en **staging**, vérifiées, **backup** dispo
-- ✅ Sécurité (secrets, RLS, policies) vérifiée
-- ✅ Observabilité (logs/alertes) en place
-- ✅ Preview validée par Ambroise (si UI)
-- ✅ Approbation **`APPROUVÉ PAR AMBROISE`** avant mise en prod
-
----
-
-## 13) Modèle de “plan d’action” à soumettre avant exécution
-
-```
-Titre : <Action concise>
-Contexte : <Pourquoi>
-Étapes prévues :
-1) ...
-2) ...
-Commandes/Changes :
-- ...
-Risques :
-- ...
-Mesures de réduction :
-- ...
-Rollback :
-- ...
-Impacts :
-- Perf/Coûts/Sécu/UX : ...
-Validation requise : APPROUVÉ PAR AMBROISE
-```
-
----
-
-### Notes d’implémentation
-
-- Place ce fichier à la racine (`RULES_CURSOR.md`) et référence-le dans le README/CONTRIBUTING.
-- Active des **protections de branche** (review obligatoire, checks CI requis, interdiction de push direct sur `main`).
-- Pour Supabase : privilégier **migrations SQL** + `supabase db diff`; n’utiliser **`reset` que localement**.
+**Rappel :**  
+_“Ne jamais supposer, toujours vérifier.”_  
+_“Chercher l’existant avant de créer du nouveau.”_  
+_“La sécurité et la cohérence priment sur la rapidité.”_
+_"Pose moi des questions au lieu de te lancer dans l'implémentation d'une idée stupide"_

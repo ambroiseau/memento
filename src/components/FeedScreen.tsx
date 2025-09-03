@@ -239,84 +239,125 @@ export function FeedScreen({
     if (!deleteConfirmPost || !user || !user.id) return;
 
     try {
-      // First, get the post images to delete them from storage
+      // Récupérer les détails du post avant suppression
+      const { data: postDetails, error: postDetailsError } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', deleteConfirmPost)
+        .single();
+
+      if (postDetailsError) {
+        console.error('❌ Erreur récupération détails post:', postDetailsError);
+        throw postDetailsError;
+      }
+
+      console.log('🗑️  Tentative de suppression du post:', deleteConfirmPost);
+      console.log('📊 Détails du post:', {
+        id: postDetails.id,
+        user_id: postDetails.user_id,
+        source_type: postDetails.source_type,
+        is_telegram: postDetails.is_telegram,
+      });
+      console.log('👤 User ID:', user.id, 'Admin:', isUserAdmin);
+
+      // SUPPRESSION DU POST EN PREMIER (avec cascade automatique)
+      let postDeleteError;
+      let deleteResult;
+
+      if (isUserAdmin) {
+        // Admin can delete ANY post (Telegram or normal)
+        console.log(
+          "🔑 Suppression en tant qu'admin - tous les posts autorisés"
+        );
+
+        // Suppression simple avec le client normal (RLS devrait permettre aux admins)
+        const { data, error } = await supabase
+          .from('posts')
+          .delete()
+          .eq('id', deleteConfirmPost)
+          .select();
+
+        postDeleteError = error;
+        deleteResult = data;
+        console.log('🔑 Résultat admin (client normal):', { data, error });
+      } else {
+        // Regular user can only delete their own posts
+        console.log(
+          "👤 Suppression en tant qu'utilisateur - posts personnels uniquement"
+        );
+        const { data, error } = await supabase
+          .from('posts')
+          .delete()
+          .eq('id', deleteConfirmPost)
+          .eq('user_id', user.id)
+          .select();
+        postDeleteError = error;
+        deleteResult = data;
+        console.log('👤 Résultat utilisateur:', { data, error });
+      }
+
+      if (postDeleteError) {
+        console.error('❌ Erreur suppression post:', postDeleteError);
+        throw postDeleteError;
+      }
+
+      if (!deleteResult || deleteResult.length === 0) {
+        console.warn(
+          '⚠️  Aucun post supprimé - post introuvable ou permissions insuffisantes'
+        );
+        throw new Error('Post introuvable ou permissions insuffisantes');
+      }
+
+      console.log('✅ Post supprimé avec succès:', deleteResult);
+
+      // MAINTENANT on peut nettoyer le storage (optionnel, car cascade a déjà supprimé post_images)
+      console.log('🧹 Nettoyage optionnel du storage...');
       const { data: postImages, error: fetchError } = await supabase
         .from('post_images')
         .select('*')
         .eq('post_id', deleteConfirmPost);
 
-      if (fetchError) {
-        console.error('Error fetching post images:', fetchError);
-      }
-
-      // Log the structure to see what columns exist
       if (postImages && postImages.length > 0) {
-        console.log('🔍 Post images structure:', postImages[0]);
-      }
-
-      // Delete images from storage buckets if they exist
-      if (postImages && postImages.length > 0) {
-        console.log('🗑️ Deleting images from storage:', postImages);
-        const deletePromises = [];
-
+        console.log(
+          '⚠️  Images encore présentes dans post_images (cascade non fonctionnel)'
+        );
+        // Nettoyer manuellement le storage si nécessaire
         for (const image of postImages) {
-          console.log('📸 Processing image:', image);
-
-          // Try to delete from both buckets using the storage_path
-          // The storage_path might be in post-images-display or post-images-original
           if (image.storage_path) {
-            console.log('🗑️ Attempting to delete image:', image.storage_path);
+            try {
+              await supabase.storage
+                .from('post-images-display')
+                .remove([image.storage_path]);
+              console.log('✅ Image display nettoyée:', image.storage_path);
+            } catch (error) {
+              console.log('ℹ️ Image display déjà supprimée ou introuvable');
+            }
 
-            // Try to delete from post-images-display first
-            const deleteDisplayPromise = supabase.storage
-              .from('post-images-display')
-              .remove([image.storage_path])
-              .then(result => {
-                console.log('✅ Display image deleted:', result);
-                return result;
-              })
-              .catch(error => {
-                console.log(
-                  'ℹ️ Image not in display bucket, trying original bucket...'
-                );
-                // If not in display, try original bucket
-                return supabase.storage
-                  .from('post-images-original')
-                  .remove([image.storage_path])
-                  .then(result => {
-                    console.log('✅ Original image deleted:', result);
-                    return result;
-                  })
-                  .catch(originalError => {
-                    console.error(
-                      '❌ Error deleting from both buckets:',
-                      originalError
-                    );
-                    return originalError;
-                  });
-              });
-            deletePromises.push(deleteDisplayPromise);
+            try {
+              await supabase.storage
+                .from('post-images-original')
+                .remove([image.storage_path]);
+              console.log('✅ Image original nettoyée:', image.storage_path);
+            } catch (error) {
+              console.log('ℹ️ Image original déjà supprimée ou introuvable');
+            }
           }
         }
-
-        // Wait for all storage deletions to complete
-        console.log('⏳ Waiting for all deletions to complete...');
-        const results = await Promise.all(deletePromises);
-        console.log('📊 Deletion results:', results);
       } else {
-        console.log('ℹ️ No images found for this post');
+        console.log('✅ Cascade fonctionnel - post_images déjà supprimées');
       }
 
-      // Delete the post (this will cascade delete post_images due to foreign key)
-      const { error: postDeleteError } = await supabase
+      console.log('✅ Post supprimé avec succès:', deleteResult);
+
+      // Debug: Vérifier si le post existe encore
+      console.log('🔍 Vérification post après tentative de suppression...');
+      const { data: postCheck, error: checkError } = await supabase
         .from('posts')
-        .delete()
+        .select('*')
         .eq('id', deleteConfirmPost)
-        .eq('user_id', user.id); // Security: only delete own posts
+        .single();
 
-      if (postDeleteError) {
-        throw postDeleteError;
-      }
+      console.log('🔍 Post après suppression:', { postCheck, checkError });
 
       // Remove post from local state
       setPosts(prevPosts =>
@@ -616,25 +657,45 @@ export function FeedScreen({
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="text-sm">
+                            <p className="text-sm font-medium">
                               {post.author?.name || 'Unknown'}
                             </p>
                             <p className="text-xs text-gray-500">
                               {formatDate(post.createdAt)}
                             </p>
+                            {/* Telegram chat info */}
+                            {post.is_telegram && post.metadata?.chat_title && (
+                              <span className="text-xs text-gray-400">
+                                via {post.metadata.chat_title}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Telegram tag - à gauche du mois */}
+                          {post.is_telegram && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200"
+                            >
+                              📱 Telegram
+                            </Badge>
+                          )}
+
                           <Badge
                             variant="outline"
                             className="text-xs flex items-center gap-1"
                           >
                             <Book className="w-3 h-3" />
-                            August
+                            {new Date(post.createdAt).toLocaleDateString(
+                              'en-US',
+                              { month: 'long' }
+                            )}
                           </Badge>
 
-                          {/* Menu 3 points - Only show for own posts */}
-                          {post.user_id === user.id && (
+                          {/* Menu 3 points - Show for own posts OR admin for Telegram posts */}
+                          {(post.user_id === user.id ||
+                            (isUserAdmin && post.is_telegram)) && (
                             <div className="relative menu-container">
                               <Button
                                 variant="ghost"

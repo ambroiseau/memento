@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import { secureImageUpload } from '../utils/secure-image-upload';
 import { supabaseApi } from '../utils/supabase-api';
 import { supabase } from '../utils/supabase/client';
+import { SimpleExternalDataSources } from './ExternalDataSources/SimpleExternalDataSources';
 import { PastAlbumsList } from './PastAlbumsList';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
@@ -654,6 +655,35 @@ export function SettingsScreen({
           </CardHeader>
           <CardContent>
             <PastAlbumsList familyId={family.id} />
+          </CardContent>
+        </Card>
+
+        {/* External Data Sources - Version simple */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              External Data Sources
+            </CardTitle>
+            <CardDescription>
+              Configure external sources to automatically import media into your
+              family album
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SimpleExternalDataSources familyId={family.id} userId={user.id} />
           </CardContent>
         </Card>
 
