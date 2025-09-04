@@ -670,12 +670,6 @@ export function FeedScreen({
                                   via {post.metadata.chat_title}
                                 </span>
                               )}
-                            {post.source_type === 'slack' &&
-                              post.metadata?.channel_id && (
-                                <span className="text-xs text-gray-400">
-                                  via Slack
-                                </span>
-                              )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -757,11 +751,19 @@ export function FeedScreen({
                     {/* Post Caption, Date, and Reaction - Combined */}
                     <div className="px-4">
                       <div
-                        className={`flex justify-between gap-3 ${!post.caption ? 'items-center' : 'items-start'}`}
+                        className={`flex justify-between gap-3 ${
+                          !post.caption || 
+                          (post.source_type === 'slack' && post.metadata?.file_name === post.caption) ||
+                          (post.source_type === 'telegram' && post.metadata?.file_name === post.caption)
+                            ? 'items-center' 
+                            : 'items-start'
+                        }`}
                       >
                         <div className="flex-1 min-w-0">
                           {/* Post Caption */}
-                          {post.caption && (
+                          {post.caption && 
+                           !(post.source_type === 'slack' && post.metadata?.file_name === post.caption) &&
+                           !(post.source_type === 'telegram' && post.metadata?.file_name === post.caption) && (
                             <p className="text-sm mb-1">{post.caption}</p>
                           )}
 

@@ -5,13 +5,13 @@ dotenvConfig();
 
 export const config = {
   port: (() => {
-    // Force le port 3001, mais permet de le changer via variable d'environnement si nécessaire
+    // Utilise le port fourni par Railway ou 3001 par défaut
     const envPort = process.env.PORT;
-    if (envPort && envPort !== '3001') {
-      console.log(
-        `⚠️  Port override detected: ${envPort}. Using 3001 instead for consistency.`
-      );
+    if (envPort) {
+      console.log(`🚀 Using Railway port: ${envPort}`);
+      return parseInt(envPort, 10);
     }
+    console.log('🔧 Using default port: 3001');
     return 3001;
   })(),
   supabase: {

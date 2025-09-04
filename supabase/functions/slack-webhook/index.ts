@@ -90,6 +90,16 @@ serve(async req => {
       return new Response(body.challenge, { status: 200 });
     }
 
+    // Gérer le test de connexion depuis l'app
+    if (body.type === 'test_connection' && body.channel_id) {
+      console.log('Testing Slack connection for channel:', body.channel_id);
+      const testResult = await testSlackConnection(body.channel_id);
+      return new Response(JSON.stringify(testResult), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Valider la structure de la requête
     if (!body || !body.event) {
       console.log('Invalid format, but returning 200 anyway');
@@ -223,11 +233,15 @@ async function processSlackFile(
 
     console.log('Found family:', family.id);
 
-    // 2. Télécharger le fichier depuis Slack
+    // 2. Récupérer les informations de l'utilisateur Slack
+    const userInfo = await getSlackUserInfo(slackBotToken, file.user);
+    console.log('User info retrieved:', userInfo);
+
+    // 3. Télécharger le fichier depuis Slack
     const fileInfo = await downloadSlackFile(slackBotToken, file);
     console.log('File downloaded, size:', fileInfo.buffer.byteLength);
 
-    // 3. Upload vers Supabase Storage
+    // 4. Upload vers Supabase Storage
     const fileExtension = getFileExtension(file.name, file.mimetype);
     const storagePath = `slack/${file.id}${fileExtension}`;
 
@@ -244,7 +258,7 @@ async function processSlackFile(
 
     console.log('Upload successful:', storagePath);
 
-    // 4. Créer le post dans la base de données
+    // 5. Créer le post dans la base de données
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .insert({
@@ -258,11 +272,22 @@ async function processSlackFile(
           file_name: file.name,
           file_type: file.mimetype,
           file_size: file.size,
-          slack_user: file.username || 'Unknown',
-          slack_user_info: {
-            user_id: file.user,
-            username: file.username,
-          },
+          slack_user: userInfo
+            ? `${userInfo.real_name || userInfo.display_name || userInfo.name || 'Utilisateur Slack'}`
+            : file.username || 'Utilisateur Slack',
+          slack_user_info: userInfo
+            ? {
+                user_id: file.user,
+                real_name: userInfo.real_name,
+                display_name: userInfo.display_name,
+                name: userInfo.name,
+                email: userInfo.profile?.email,
+                image: userInfo.profile?.image_192,
+              }
+            : {
+                user_id: file.user,
+                username: file.username,
+              },
           timestamp: new Date().toISOString(),
         },
       })
@@ -275,7 +300,7 @@ async function processSlackFile(
 
     console.log('Post created:', postData.id);
 
-    // 5. Créer l'entrée dans post_images
+    // 6. Créer l'entrée dans post_images
     const { data: imageData, error: imageError } = await supabase
       .from('post_images')
       .insert({
@@ -731,4 +756,100 @@ function getFileExtension(filename: string, mimetype: string): string {
   };
 
   return mimeToExt[mimetype] || '.bin';
+}
+
+/**
+ * Tester la connexion Slack pour un channel donné
+ */
+async function testSlackConnection(
+  channelId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('Testing Slack connection for channel:', channelId);
+
+    // Vérifier que le bot token est configuré
+    const botToken = Deno.env.get('SLACK_BOT_TOKEN');
+    if (!botToken) {
+      return {
+        success: false,
+        error: 'SLACK_BOT_TOKEN not configured',
+      };
+    }
+
+    // Tester l'accès au channel via l'API Slack
+    const response = await fetch('https://slack.com/api/conversations.info', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel: channelId,
+      }),
+    });
+
+    const result = await response.json();
+    console.log('Slack API response:', result);
+
+    if (!result.ok) {
+      return {
+        success: false,
+        error: result.error || 'Failed to access channel',
+      };
+    }
+
+    // Vérifier que le bot a accès au channel
+    if (!result.channel) {
+      return {
+        success: false,
+        error: 'Channel not found or bot has no access',
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error testing Slack connection:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Récupère les informations d'un utilisateur Slack via l'API
+ */
+async function getSlackUserInfo(
+  botToken: string,
+  userId: string
+): Promise<any> {
+  try {
+    console.log('Fetching user info for:', userId);
+
+    const response = await fetch('https://slack.com/api/users.info', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user: userId,
+      }),
+    });
+
+    const result = await response.json();
+    console.log('Slack user info response:', result);
+
+    if (!result.ok) {
+      console.error('Failed to get user info:', result.error);
+      return null;
+    }
+
+    return result.user;
+  } catch (error) {
+    console.error('Error fetching user info:', error);
+    return null;
+  }
 }

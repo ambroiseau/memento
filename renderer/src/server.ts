@@ -1,5 +1,5 @@
-import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import Fastify from 'fastify';
 import { config } from './config.js';
 import { renderHandler } from './handlers/render.js';
 
@@ -9,13 +9,29 @@ const fastify = Fastify({
 
 // Register CORS
 await fastify.register(cors, {
-  origin: true,
+  origin: [
+    'https://memento-ruddy.vercel.app',
+    'https://memento.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 });
 
 // Health check endpoint
 fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };
+});
+
+// CORS test endpoint
+fastify.get('/cors-test', async (request, reply) => {
+  return {
+    status: 'cors-ok',
+    timestamp: new Date().toISOString(),
+    origin: request.headers.origin,
+  };
 });
 
 // PDF generation endpoint

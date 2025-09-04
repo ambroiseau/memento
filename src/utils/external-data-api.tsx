@@ -397,6 +397,63 @@ export const externalDataApi = {
   },
 
   /**
+   * Tester la connexion à une source Slack
+   */
+  testSlackConnection: async (
+    channelId: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Test 1: Valider le format du Channel ID
+      if (!channelId.startsWith('C')) {
+        return {
+          success: false,
+          error: 'Channel ID must start with "C" (e.g., C1234567890)',
+        };
+      }
+
+      // Test 2: Tester la connexion via l'Edge Function
+      const response = await fetch(
+        `${process.env.VITE_SUPABASE_URL}/functions/v1/slack-webhook`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            type: 'test_connection',
+            channel_id: channelId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Edge Function error: ${response.status} ${response.statusText}`,
+        };
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: result.error || 'Connection test failed',
+        };
+      }
+    } catch (error) {
+      console.error('Error testing Slack connection:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  },
+
+  /**
    * Tester la connexion à une source Telegram
    */
   testTelegramConnection: async (

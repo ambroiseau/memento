@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../utils/supabase/client';
+import { externalDataApi } from '../../utils/external-data-api';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 
@@ -170,10 +171,18 @@ export function SimpleExternalDataSources({
           throw new Error('Channel ID must start with "C" (e.g., C1234567890)');
         }
 
-        setTestResult('success');
-        setTestMessage(
-          `✅ Channel ID "${config.channelId}" is valid and ready to be configured.`
-        );
+        // Test real connection via API
+        const result = await externalDataApi.testSlackConnection(config.channelId);
+        
+        if (result.success) {
+          setTestResult('success');
+          setTestMessage(
+            `✅ Channel ID "${config.channelId}" is valid and accessible.`
+          );
+        } else {
+          setTestResult('error');
+          setTestMessage(`❌ Connection failed: ${result.error}`);
+        }
       } catch (error) {
         console.error('Channel ID validation failed:', error);
         setTestResult('error');
