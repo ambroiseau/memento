@@ -192,24 +192,24 @@ export default async function handler(req, res) {
         .eq('id', existingSource.id);
     } else {
       // Créer une nouvelle source
-      await supabase
-        .from('external_data_sources')
-        .insert({
-          family_id: family_id,
-          source_type: 'slack',
-          name: `Slack - ${data.team.name}`,
-          config: {
-            team_id: data.team.id,
-            bot_token: data.access_token,
-            team_name: data.team.name,
-          },
-          is_active: true,
-          created_by: null,
-        });
+      await supabase.from('external_data_sources').insert({
+        family_id: family_id,
+        source_type: 'slack',
+        name: `Slack - ${data.team.name}`,
+        config: {
+          team_id: data.team.id,
+          bot_token: data.access_token,
+          team_name: data.team.name,
+        },
+        is_active: true,
+        created_by: null,
+      });
     }
 
     // Rediriger vers l'app avec un message de succès
-    return res.redirect(`https://memento-ruddy.vercel.app/?slack_connected=true&family_id=${family_id}`);
+    return res.redirect(
+      `https://memento-ruddy.vercel.app/?slack_connected=true&family_id=${family_id}`
+    );
   } catch (error) {
     console.error('OAuth error:', error);
     return res.status(500).send('Erreur OAuth: ' + error.message);
