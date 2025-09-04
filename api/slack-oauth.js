@@ -9,6 +9,8 @@ export default async function handler(req, res) {
     state,
     url: req.url,
     searchParams: Object.fromEntries(url.searchParams),
+    method: req.method,
+    headers: req.headers,
   });
 
   if (!code) {
@@ -115,8 +117,13 @@ export default async function handler(req, res) {
 
       if (createResponse.ok) {
         console.log('Token stored successfully for team:', data.team.id);
+        const createdData = await createResponse.json();
+        console.log('Created source:', createdData);
       } else {
-        console.error('Failed to store token:', await createResponse.text());
+        const errorText = await createResponse.text();
+        console.error('Failed to store token:', errorText);
+        console.error('Response status:', createResponse.status);
+        console.error('Response headers:', Object.fromEntries(createResponse.headers.entries()));
       }
     }
   } catch (error) {

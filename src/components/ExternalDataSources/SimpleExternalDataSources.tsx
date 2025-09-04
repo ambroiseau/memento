@@ -108,6 +108,8 @@ export function SimpleExternalDataSources({
         if (error) {
           console.error('Error fetching sources:', error);
         } else {
+          console.log('External sources loaded:', data);
+          console.log('Slack source found:', data?.find(s => s.source_type === 'slack'));
           setExistingSources(data || []);
         }
       } catch (error) {
