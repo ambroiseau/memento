@@ -1,11 +1,14 @@
 export default async function handler(req, res) {
   const { code, state } = req.query;
 
+  console.log('OAuth request received:', { code, state, query: req.query });
+
   if (!code) {
     return res.status(400).send('Code OAuth manquant');
   }
 
   if (!state) {
+    console.log('State parameter missing:', req.query);
     return res.status(400).send('Family ID manquant');
   }
 
