@@ -633,7 +633,7 @@ export function SimpleExternalDataSources({
                         );
                         return;
                       }
-                      const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=486639851300.9450150412581&scope=files:read,channels:read,users:read,chat:write&redirect_uri=${encodeURIComponent(`https://zcyalwewcdgbftaaneet.supabase.co/functions/v1/slack-oauth`)}&state=${familyId}`;
+                      const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=486639851300.9450150412581&scope=files:read,channels:read,users:read,chat:write&redirect_uri=${encodeURIComponent(`https://memento-ruddy.vercel.app/api/slack-oauth`)}&state=${familyId}`;
                       console.log('OAuth URL:', oauthUrl);
                       window.open(oauthUrl, '_blank');
                     }}

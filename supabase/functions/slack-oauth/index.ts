@@ -13,6 +13,15 @@ serve(async req => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Vérifier l'autorisation pour les requêtes non-OAuth
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader && req.method !== 'GET') {
+    return new Response(
+      JSON.stringify({ error: 'Missing authorization header' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     // Gérer les paramètres GET (OAuth callback)
     const url = new URL(req.url);

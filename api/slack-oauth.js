@@ -140,6 +140,7 @@ export default async function handler(req, res) {
     console.error('Error storing token:', error);
   }
 
-  // Rediriger vers les paramètres avec un message de succès
-  return res.redirect(`/?slack_connected=true&family_id=${family_id}`);
+  // Rediriger vers l'Edge Function Supabase pour traiter l'OAuth
+  const edgeFunctionUrl = `https://zcyalwewcdgbftaaneet.supabase.co/functions/v1/slack-oauth?code=${code}&state=${family_id}`;
+  return res.redirect(edgeFunctionUrl);
 }
