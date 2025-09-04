@@ -211,27 +211,70 @@ export function SimpleExternalDataSources({
     setIsSaving(true);
 
     try {
-      // Save to external_data_sources table
-      const insertData = {
-        family_id: familyId,
-        source_type: currentSourceType,
-        name: config.sourceName,
-        config:
-          currentSourceType === 'telegram'
-            ? { chat_id: config.chatId }
-            : { channel_id: config.channelId },
-        is_active: true,
-        created_by: userId,
-      };
+      if (currentSourceType === 'slack') {
+        // Pour Slack, on met à jour la source existante (créée par OAuth) avec le channel_id
+        const existingSlackSource = existingSources.find(s => s.source_type === 'slack');
+        
+        if (existingSlackSource) {
+          // Mettre à jour la source existante
+          const { data, error } = await supabase
+            .from('external_data_sources')
+            .update({
+              name: config.sourceName,
+              config: {
+                ...existingSlackSource.config,
+                channel_id: config.channelId
+              },
+              created_by: userId,
+            })
+            .eq('id', existingSlackSource.id)
+            .select()
+            .single();
 
-      const { data, error } = await supabase
-        .from('external_data_sources')
-        .insert(insertData)
-        .select()
-        .single();
+          if (error) {
+            throw error;
+          }
+        } else {
+          // Créer une nouvelle source si elle n'existe pas
+          const insertData = {
+            family_id: familyId,
+            source_type: currentSourceType,
+            name: config.sourceName,
+            config: { channel_id: config.channelId },
+            is_active: true,
+            created_by: userId,
+          };
 
-      if (error) {
-        throw error;
+          const { data, error } = await supabase
+            .from('external_data_sources')
+            .insert(insertData)
+            .select()
+            .single();
+
+          if (error) {
+            throw error;
+          }
+        }
+      } else {
+        // Pour Telegram, logique normale
+        const insertData = {
+          family_id: familyId,
+          source_type: currentSourceType,
+          name: config.sourceName,
+          config: { chat_id: config.chatId },
+          is_active: true,
+          created_by: userId,
+        };
+
+        const { data, error } = await supabase
+          .from('external_data_sources')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
       }
 
       setTestResult('success');
@@ -463,18 +506,11 @@ export function SimpleExternalDataSources({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    // Rediriger vers l'OAuth Slack avec l'ID de la famille
-                    console.log('Family ID:', familyId);
-                    if (!familyId) {
-                      alert('Family ID manquant - impossible de connecter Slack');
-                      return;
-                    }
-                    const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=486639851300.9450150412581&scope=files:read,channels:read,users:read,chat:write&redirect_uri=${encodeURIComponent(`https://memento-ruddy.vercel.app/api/slack-oauth`)}&state=${familyId}`;
-                    console.log('OAuth URL:', oauthUrl);
-                    window.open(oauthUrl, '_blank');
+                    setCurrentSourceType('slack');
+                    setShowConfigForm(true);
                   }}
                 >
-                  Connecter à Slack
+                  Add source
                 </Button>
               </div>
             </div>
@@ -575,6 +611,30 @@ export function SimpleExternalDataSources({
               </div>
             ) : (
               <div>
+                <div className="mb-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('Family ID:', familyId);
+                      if (!familyId) {
+                        alert('Family ID manquant - impossible de connecter Slack');
+                        return;
+                      }
+                      const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=486639851300.9450150412581&scope=files:read,channels:read,users:read,chat:write&redirect_uri=${encodeURIComponent(`https://memento-ruddy.vercel.app/api/slack-oauth`)}&state=${familyId}`;
+                      console.log('OAuth URL:', oauthUrl);
+                      window.open(oauthUrl, '_blank');
+                    }}
+                    className="w-full"
+                  >
+                    🔗 Connecter à Slack
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Cliquez pour autoriser l'accès à votre workspace Slack
+                  </p>
+                </div>
+                
                 <label className="block text-sm font-medium mb-2">
                   Channel ID
                 </label>
@@ -586,7 +646,7 @@ export function SimpleExternalDataSources({
                   onChange={e => handleInputChange('channelId', e.target.value)}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  The bot token is configured centrally and securely.
+                  Le token bot sera configuré automatiquement après l'OAuth.
                 </p>
               </div>
             )}

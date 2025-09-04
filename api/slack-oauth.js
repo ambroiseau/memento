@@ -4,11 +4,11 @@ export default async function handler(req, res) {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
 
-  console.log('OAuth request received:', { 
-    code, 
-    state, 
+  console.log('OAuth request received:', {
+    code,
+    state,
     url: req.url,
-    searchParams: Object.fromEntries(url.searchParams)
+    searchParams: Object.fromEntries(url.searchParams),
   });
 
   if (!code) {
@@ -16,9 +16,9 @@ export default async function handler(req, res) {
   }
 
   if (!state) {
-    console.log('State parameter missing:', { 
-      url: req.url, 
-      searchParams: Object.fromEntries(url.searchParams) 
+    console.log('State parameter missing:', {
+      url: req.url,
+      searchParams: Object.fromEntries(url.searchParams),
     });
     return res.status(400).send('Family ID manquant');
   }

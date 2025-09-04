@@ -45,6 +45,8 @@ export default function App() {
     if (urlParams.get('slack_connected') === 'true') {
       // Afficher un message de succès et recharger les données
       console.log('Slack connected successfully!');
+      // Nettoyer l'URL
+      window.history.replaceState({}, document.title, window.location.pathname);
       // Optionnel: afficher une notification toast
     }
 
