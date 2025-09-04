@@ -355,7 +355,7 @@ export const supabaseApi = {
           }
         }
 
-        // Handle Telegram posts (source_type = 'telegram')
+        // Handle external posts (Telegram, Slack, etc.)
         let authorName = 'Unknown User';
         let authorAvatar = null;
 
@@ -364,6 +364,11 @@ export const supabaseApi = {
           const metadata = post.metadata || {};
           authorName = metadata.telegram_user || 'Telegram User';
           authorAvatar = null; // Could add Telegram icon later
+        } else if (post.source_type === 'slack') {
+          // For Slack posts, extract sender info from metadata
+          const metadata = post.metadata || {};
+          authorName = metadata.slack_user || 'Slack User';
+          authorAvatar = null; // Could add Slack icon later
         } else if (profile) {
           // For regular posts, use profile info
           authorName = profile.name;
@@ -387,6 +392,7 @@ export const supabaseApi = {
           // Add source info for display
           source_type: post.source_type,
           is_telegram: post.source_type === 'telegram',
+          is_slack: post.source_type === 'slack',
         };
       })
     );

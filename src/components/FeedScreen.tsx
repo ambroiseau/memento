@@ -663,22 +663,37 @@ export function FeedScreen({
                             <p className="text-xs text-gray-500">
                               {formatDate(post.createdAt)}
                             </p>
-                            {/* Telegram chat info */}
-                            {post.is_telegram && post.metadata?.chat_title && (
-                              <span className="text-xs text-gray-400">
-                                via {post.metadata.chat_title}
-                              </span>
-                            )}
+                            {/* External source info */}
+                            {post.source_type === 'telegram' &&
+                              post.metadata?.chat_title && (
+                                <span className="text-xs text-gray-400">
+                                  via {post.metadata.chat_title}
+                                </span>
+                              )}
+                            {post.source_type === 'slack' &&
+                              post.metadata?.channel_id && (
+                                <span className="text-xs text-gray-400">
+                                  via Slack
+                                </span>
+                              )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {/* Telegram tag - à gauche du mois */}
-                          {post.is_telegram && (
+                          {/* External source tags */}
+                          {post.source_type === 'telegram' && (
                             <Badge
                               variant="secondary"
                               className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200"
                             >
                               📱 Telegram
+                            </Badge>
+                          )}
+                          {post.source_type === 'slack' && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs px-2 py-0.5 bg-purple-50 text-purple-700 border-purple-200"
+                            >
+                              💬 Slack
                             </Badge>
                           )}
 
@@ -693,9 +708,11 @@ export function FeedScreen({
                             )}
                           </Badge>
 
-                          {/* Menu 3 points - Show for own posts OR admin for Telegram posts */}
+                          {/* Menu 3 points - Show for own posts OR admin for external posts */}
                           {(post.user_id === user.id ||
-                            (isUserAdmin && post.is_telegram)) && (
+                            (isUserAdmin &&
+                              (post.source_type === 'telegram' ||
+                                post.source_type === 'slack'))) && (
                             <div className="relative menu-container">
                               <Button
                                 variant="ghost"
