@@ -227,21 +227,22 @@ async function processSlackFile(
     // Créer le client Supabase
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Récupérer le Bot Token pour ce workspace
+    // 1. Récupérer le Bot Token pour ce workspace depuis external_data_sources
     let slackBotToken;
     if (teamId) {
-      // Récupérer le token depuis la base de données
-      const { data: tokenData, error: tokenError } = await supabase
-        .from('slack_workspace_tokens')
-        .select('bot_token')
-        .eq('team_id', teamId)
+      // Récupérer le token depuis external_data_sources
+      const { data: sourceData, error: sourceError } = await supabase
+        .from('external_data_sources')
+        .select('config')
+        .eq('source_type', 'slack')
+        .eq('config->>team_id', teamId)
         .single();
 
-      if (tokenError || !tokenData) {
-        console.log('No token found for team:', teamId, 'using fallback');
+      if (sourceError || !sourceData) {
+        console.log('No Slack source found for team:', teamId, 'using fallback');
         slackBotToken = Deno.env.get('SLACK_BOT_TOKEN'); // Fallback
       } else {
-        slackBotToken = tokenData.bot_token;
+        slackBotToken = sourceData.config.bot_token;
         console.log('Using token for team:', teamId);
       }
     } else {
