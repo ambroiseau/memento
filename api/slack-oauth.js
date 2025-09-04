@@ -123,7 +123,10 @@ export default async function handler(req, res) {
         const errorText = await createResponse.text();
         console.error('Failed to store token:', errorText);
         console.error('Response status:', createResponse.status);
-        console.error('Response headers:', Object.fromEntries(createResponse.headers.entries()));
+        console.error(
+          'Response headers:',
+          Object.fromEntries(createResponse.headers.entries())
+        );
       }
     }
   } catch (error) {
