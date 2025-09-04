@@ -464,7 +464,7 @@ export function SimpleExternalDataSources({
                   size="sm"
                   onClick={() => {
                     // Rediriger vers l'OAuth Slack avec l'ID de la famille
-                    const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=486639851300.9450150412581&scope=files:read,channels:read,users:read,chat:write&redirect_uri=${encodeURIComponent(`https://memento-ruddy.vercel.app/api/slack-oauth?family_id=${familyId}`)}`;
+                    const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=486639851300.9450150412581&scope=files:read,channels:read,users:read,chat:write&redirect_uri=${encodeURIComponent(`https://memento-ruddy.vercel.app/api/slack-oauth`)}&state=${familyId}`;
                     window.open(oauthUrl, '_blank');
                   }}
                 >

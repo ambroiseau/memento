@@ -1,13 +1,15 @@
 export default async function handler(req, res) {
-  const { code, family_id } = req.query;
+  const { code, state } = req.query;
 
   if (!code) {
     return res.status(400).send('Code OAuth manquant');
   }
 
-  if (!family_id) {
+  if (!state) {
     return res.status(400).send('Family ID manquant');
   }
+
+  const family_id = state;
 
   // Échange du code contre un access_token
   const response = await fetch('https://slack.com/api/oauth.v2.access', {
