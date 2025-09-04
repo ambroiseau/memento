@@ -239,7 +239,11 @@ async function processSlackFile(
         .single();
 
       if (sourceError || !sourceData) {
-        console.log('No Slack source found for team:', teamId, 'using fallback');
+        console.log(
+          'No Slack source found for team:',
+          teamId,
+          'using fallback'
+        );
         slackBotToken = Deno.env.get('SLACK_BOT_TOKEN'); // Fallback
       } else {
         slackBotToken = sourceData.config.bot_token;

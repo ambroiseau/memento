@@ -28,33 +28,39 @@ export default async function handler(req, res) {
   // Stocker le token en base de données dans external_data_sources
   try {
     // Vérifier si une source Slack existe déjà pour ce team
-    const checkResponse = await fetch(`https://zcyalwewcdgbftaaneet.supabase.co/rest/v1/external_data_sources?source_type=eq.slack&config->>team_id=eq.${data.team.id}`, {
-      headers: {
-        'apikey': process.env.SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+    const checkResponse = await fetch(
+      `${process.env.VITE_SUPABASE_URL}/rest/v1/external_data_sources?source_type=eq.slack&config->>team_id=eq.${data.team.id}`,
+      {
+        headers: {
+          apikey: process.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+        },
       }
-    });
+    );
 
     const existingSources = await checkResponse.json();
-    
+
     if (existingSources.length > 0) {
       // Mettre à jour la source existante
-      const updateResponse = await fetch(`https://zcyalwewcdgbftaaneet.supabase.co/rest/v1/external_data_sources?id=eq.${existingSources[0].id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({
-          config: {
-            ...existingSources[0].config,
-            bot_token: data.access_token,
-            team_name: data.team.name
-          },
-          updated_at: new Date().toISOString()
-        })
-      });
+              const updateResponse = await fetch(
+          `${process.env.VITE_SUPABASE_URL}/rest/v1/external_data_sources?id=eq.${existingSources[0].id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: process.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+          body: JSON.stringify({
+            config: {
+              ...existingSources[0].config,
+              bot_token: data.access_token,
+              team_name: data.team.name,
+            },
+            updated_at: new Date().toISOString(),
+          }),
+        }
+      );
 
       if (updateResponse.ok) {
         console.log('Token updated successfully for team:', data.team.id);
@@ -63,26 +69,29 @@ export default async function handler(req, res) {
       }
     } else {
       // Créer une nouvelle source (sans family_id pour l'instant)
-      const createResponse = await fetch('https://zcyalwewcdgbftaaneet.supabase.co/rest/v1/external_data_sources', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({
-          family_id: null, // Sera lié plus tard quand l'utilisateur configurera
-          source_type: 'slack',
-          name: `Slack - ${data.team.name}`,
-          config: {
-            team_id: data.team.id,
-            bot_token: data.access_token,
-            team_name: data.team.name
-          },
-          is_active: false, // Inactif jusqu'à configuration
-          created_by: null // Sera mis à jour lors de la configuration
-        })
-      });
+              const createResponse = await fetch(
+          `${process.env.VITE_SUPABASE_URL}/rest/v1/external_data_sources`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: process.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+          body: JSON.stringify({
+            family_id: null, // Sera lié plus tard quand l'utilisateur configurera
+            source_type: 'slack',
+            name: `Slack - ${data.team.name}`,
+            config: {
+              team_id: data.team.id,
+              bot_token: data.access_token,
+              team_name: data.team.name,
+            },
+            is_active: false, // Inactif jusqu'à configuration
+            created_by: null, // Sera mis à jour lors de la configuration
+          }),
+        }
+      );
 
       if (createResponse.ok) {
         console.log('Token stored successfully for team:', data.team.id);
