@@ -13,8 +13,8 @@ _"Pose moi des questions au lieu de te lancer dans l'implémentation d'une idée
 ### 2. Sécurité & Secrets
 
 - **Ne jamais exposer de secrets** (clé API, JWT, etc.) dans le code, les logs ou les URLs.
-- **Pour le déploiement du Telegram Webhook** (Railway/Supabase Edge) :
-  - **Ne jamais exiger ou vérifier de JWT** dans les requêtes entrantes.
+- **Pour le déploiement du Telegram ou Slack Webhook** (Supabase Edge) :
+  - **Ne jamais exiger ou vérifier de JWT** dans les requêtes entrantes. Déployer la correction avec --no-verify-jwt
   - Utiliser uniquement le secret de webhook Telegram pour la validation.
   - S’assurer que le endpoint n’est pas publicisé inutilement.
 - **Toujours vérifier les policies RLS** et les permissions avant de merger une PR qui touche à la sécurité.

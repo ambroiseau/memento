@@ -12,10 +12,13 @@ interface SlackEvent {
 interface SlackEventData {
   type: string;
   channel: string;
+  channel_id?: string;
   user: string;
   text?: string;
   files?: SlackFile[];
   file?: SlackFile;
+  file_id?: string;
+  subtype?: string;
   ts: string;
 }
 
@@ -154,11 +157,20 @@ async function processSlackEvent(event: SlackEventData, teamId?: string) {
   }
 
   // Traiter seulement les fichiers partagés
-  if (event.type === 'file_shared' && event.file) {
+  if (event.type === 'file_shared') {
     console.log('File shared detected!');
 
+    // Gérer le nouveau format Slack avec channel_id et file_id
+    const channelId = event.channel || event.channel_id;
+    const fileOrId = event.file || event.file_id;
+
+    if (!channelId || !fileOrId) {
+      console.log('Missing channel_id or file_id in file_shared event');
+      return { success: true, message: 'Missing required data' };
+    }
+
     try {
-      await processSlackFile(event.channel, event.file, event, teamId);
+      await processSlackFile(channelId, fileOrId, event, teamId);
       return {
         success: true,
         message: 'File processed successfully',
@@ -206,13 +218,14 @@ async function processSlackEvent(event: SlackEventData, teamId?: string) {
  */
 async function processSlackFile(
   channelId: string,
-  file: SlackFile,
+  fileOrId: SlackFile | string,
   event?: SlackEventData,
   teamId?: string
 ) {
-  console.log('Processing Slack file:', file.id);
-  console.log('File name:', file.name);
-  console.log('File type:', file.mimetype);
+  console.log(
+    'Processing Slack file:',
+    typeof fileOrId === 'string' ? fileOrId : fileOrId.id
+  );
   console.log('Team ID:', teamId);
 
   try {
@@ -242,9 +255,24 @@ async function processSlackFile(
         console.log(
           'No Slack source found for team:',
           teamId,
-          'using fallback'
+          'trying channel-based fallback'
         );
-        slackBotToken = Deno.env.get('SLACK_BOT_TOKEN'); // Fallback
+        // Fallback 1: tenter via le channel configuré (si on a stocké un bot_token dedans)
+        const { data: chanSource, error: chanErr } = await supabase
+          .from('external_data_sources')
+          .select('config')
+          .eq('source_type', 'slack')
+          .eq('config->>channel_id', channelId)
+          .single();
+
+        if (!chanErr && chanSource?.config?.bot_token) {
+          slackBotToken = chanSource.config.bot_token;
+          console.log('Using token from channel mapping for channel:', channelId);
+        } else {
+          // Fallback 2: token par défaut d'environnement
+          slackBotToken = Deno.env.get('SLACK_BOT_TOKEN');
+          console.log('Using default token (no team/channel token found)');
+        }
       } else {
         slackBotToken = sourceData.config.bot_token;
         console.log('Using token for team:', teamId);
@@ -259,7 +287,31 @@ async function processSlackFile(
       throw new Error('No Slack bot token available');
     }
 
-    // 2. Identifier la famille basée sur le channel_id
+    // 2. Normaliser l'objet file (gérer le cas où on a seulement un file_id ou un objet incomplet)
+    let file: SlackFile;
+    if (typeof fileOrId === 'string') {
+      console.log('File ID provided, fetching file info...');
+      const slackFileInfo = await getSlackFileInfo(slackBotToken, fileOrId);
+      if (!slackFileInfo || !slackFileInfo.url_private) {
+        throw new Error(`Failed to fetch file info for ID: ${fileOrId}`);
+      }
+      file = slackFileInfo;
+    } else {
+      file = fileOrId;
+      if (!file?.url_private) {
+        console.log('Incomplete file object received, fetching full file info...');
+        const slackFileInfo = await getSlackFileInfo(slackBotToken, file.id);
+        if (!slackFileInfo || !slackFileInfo.url_private) {
+          throw new Error(`Failed to fetch full file info for ID: ${file.id}`);
+        }
+        file = slackFileInfo;
+      }
+    }
+
+    console.log('File name:', file.name);
+    console.log('File type:', file.mimetype);
+
+    // 3. Identifier la famille basée sur le channel_id
     const family = await findFamilyByChannelId(supabase, channelId);
     if (!family) {
       throw new Error(`No family found for channel ID: ${channelId}`);
@@ -267,7 +319,7 @@ async function processSlackFile(
 
     console.log('Found family:', family.id);
 
-    // 2. Déterminer l'ID utilisateur à interroger (logique de fallback robuste)
+    // 4. Déterminer l'ID utilisateur à interroger (logique de fallback robuste)
     let userId = file.user || event?.user;
     console.log('Initial user ID from file.user:', file.user);
     console.log('Initial user ID from event.user:', event?.user);
@@ -283,7 +335,7 @@ async function processSlackFile(
       }
     }
 
-    // 3. Récupérer les informations de l'utilisateur Slack
+    // 5. Récupérer les informations de l'utilisateur Slack
     let userInfo = null;
     if (userId) {
       userInfo = await getSlackUserInfo(slackBotToken, userId);
@@ -292,11 +344,11 @@ async function processSlackFile(
       console.log('❌ No user ID available, skipping user info retrieval');
     }
 
-    // 4. Télécharger le fichier depuis Slack
+    // 6. Télécharger le fichier depuis Slack
     const fileInfo = await downloadSlackFile(slackBotToken, file);
     console.log('File downloaded, size:', fileInfo.buffer.byteLength);
 
-    // 5. Upload vers Supabase Storage
+    // 7. Upload vers Supabase Storage
     const fileExtension = getFileExtension(file.name, file.mimetype);
     const storagePath = `slack/${file.id}${fileExtension}`;
 
@@ -313,7 +365,7 @@ async function processSlackFile(
 
     console.log('Upload successful:', storagePath);
 
-    // 6. Créer le post dans la base de données
+    // 8. Créer le post dans la base de données
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .insert({
@@ -355,7 +407,7 @@ async function processSlackFile(
 
     console.log('Post created:', postData.id);
 
-    // 7. Créer l'entrée dans post_images
+    // 9. Créer l'entrée dans post_images
     const { data: imageData, error: imageError } = await supabase
       .from('post_images')
       .insert({
@@ -887,9 +939,9 @@ async function getSlackFileInfo(
       method: 'POST',
       headers: {
         Authorization: `Bearer ${botToken}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         file: fileId,
       }),
     });
@@ -920,9 +972,9 @@ async function getSlackUserInfo(
       method: 'POST',
       headers: {
         Authorization: `Bearer ${botToken}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         user: userId,
       }),
     });

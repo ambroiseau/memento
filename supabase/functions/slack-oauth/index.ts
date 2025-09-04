@@ -1,10 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Cette fonction est publique (pas d'authentification requise)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 serve(async req => {
@@ -13,14 +15,7 @@ serve(async req => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // Vérifier l'autorisation pour toutes les requêtes
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader) {
-    return new Response(
-      JSON.stringify({ error: 'Missing authorization header' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+  // Pas de vérification d'autorisation pour les callbacks OAuth
 
   try {
     // Gérer les paramètres GET (OAuth callback)
@@ -102,7 +97,7 @@ serve(async req => {
       status: 302,
       headers: {
         ...corsHeaders,
-        'Location': `https://memento-ruddy.vercel.app/?slack_connected=true&family_id=${state}`,
+        Location: `https://memento-ruddy.vercel.app/?slack_connected=true&family_id=${state}`,
       },
     });
   } catch (error) {
