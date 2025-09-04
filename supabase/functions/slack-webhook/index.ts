@@ -107,7 +107,7 @@ serve(async req => {
     }
 
     // Traiter l'événement Slack
-    const result = await processSlackEvent(body.event);
+    const result = await processSlackEvent(body.event, body.team_id);
     console.log('Final result:', result);
 
     console.log('=== END SLACK REQUEST ===');
@@ -124,8 +124,9 @@ serve(async req => {
 /**
  * Traite un événement Slack et extrait les fichiers
  */
-async function processSlackEvent(event: SlackEventData) {
+async function processSlackEvent(event: SlackEventData, teamId?: string) {
   console.log('Processing Slack event:', event.type);
+  console.log('Team ID:', teamId);
 
   // Gérer l'ajout du bot au channel
   if (event.type === 'member_joined_channel') {
@@ -157,7 +158,7 @@ async function processSlackEvent(event: SlackEventData) {
     console.log('File shared detected!');
 
     try {
-      await processSlackFile(event.channel, event.file, event);
+      await processSlackFile(event.channel, event.file, event, teamId);
       return {
         success: true,
         message: 'File processed successfully',
@@ -179,7 +180,7 @@ async function processSlackEvent(event: SlackEventData) {
 
     try {
       for (const file of event.files) {
-        await processSlackFile(event.channel, file, event);
+        await processSlackFile(event.channel, file, event, teamId);
       }
       return {
         success: true,
@@ -206,26 +207,54 @@ async function processSlackEvent(event: SlackEventData) {
 async function processSlackFile(
   channelId: string,
   file: SlackFile,
-  event?: SlackEventData
+  event?: SlackEventData,
+  teamId?: string
 ) {
   console.log('Processing Slack file:', file.id);
   console.log('File name:', file.name);
   console.log('File type:', file.mimetype);
+  console.log('Team ID:', teamId);
 
   try {
     // Obtenir les variables d'environnement
-    const slackBotToken = Deno.env.get('SLACK_BOT_TOKEN');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!slackBotToken || !supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Missing required environment variables');
     }
 
     // Créer le client Supabase
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Identifier la famille basée sur le channel_id
+    // 1. Récupérer le Bot Token pour ce workspace
+    let slackBotToken;
+    if (teamId) {
+      // Récupérer le token depuis la base de données
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('slack_workspace_tokens')
+        .select('bot_token')
+        .eq('team_id', teamId)
+        .single();
+
+      if (tokenError || !tokenData) {
+        console.log('No token found for team:', teamId, 'using fallback');
+        slackBotToken = Deno.env.get('SLACK_BOT_TOKEN'); // Fallback
+      } else {
+        slackBotToken = tokenData.bot_token;
+        console.log('Using token for team:', teamId);
+      }
+    } else {
+      // Fallback sur le token par défaut
+      slackBotToken = Deno.env.get('SLACK_BOT_TOKEN');
+      console.log('Using default token (no team ID provided)');
+    }
+
+    if (!slackBotToken) {
+      throw new Error('No Slack bot token available');
+    }
+
+    // 2. Identifier la famille basée sur le channel_id
     const family = await findFamilyByChannelId(supabase, channelId);
     if (!family) {
       throw new Error(`No family found for channel ID: ${channelId}`);

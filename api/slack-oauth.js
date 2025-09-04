@@ -25,6 +25,30 @@ export default async function handler(req, res) {
 
   console.log('Slack OAuth success:', data);
 
-  // Tu peux enregistrer data.access_token en DB si besoin
+  // Stocker le token en base de données
+  try {
+    const response = await fetch('https://zcyalwewcdgbftaaneet.supabase.co/rest/v1/slack_workspace_tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({
+        team_id: data.team.id,
+        bot_token: data.access_token,
+        team_name: data.team.name
+      })
+    });
+
+    if (response.ok) {
+      console.log('Token stored successfully for team:', data.team.id);
+    } else {
+      console.error('Failed to store token:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error storing token:', error);
+  }
+
   return res.redirect('/success'); // redirige vers une page frontend de ton Vite
 }
