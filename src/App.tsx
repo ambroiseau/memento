@@ -7,7 +7,7 @@ import { ImageGallery } from './components/ImageGallery';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProfileSetup } from './components/ProfileSetup';
 import { SettingsScreen } from './components/SettingsScreen';
-import { SlackOAuthSuccess } from './components/SlackOAuthSuccess';
+import SlackOAuthSuccess from './components/SlackOAuthSuccess';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { useAppActions } from './hooks/useAppActions';
 import { useAppState } from './hooks/useAppState';
