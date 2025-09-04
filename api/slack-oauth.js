@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js';
+
 export default async function handler(req, res) {
   // Parse les paramètres de l'URL
   const url = new URL(req.url, `https://${req.headers.host}`);
@@ -140,7 +142,76 @@ export default async function handler(req, res) {
     console.error('Error storing token:', error);
   }
 
-  // Rediriger vers l'Edge Function Supabase pour traiter l'OAuth
-  const edgeFunctionUrl = `https://zcyalwewcdgbftaaneet.supabase.co/functions/v1/slack-oauth?code=${code}&state=${family_id}`;
-  return res.redirect(edgeFunctionUrl);
+  // Traiter l'OAuth directement dans Vercel
+  try {
+    // Échange du code contre un access_token
+    const response = await fetch('https://slack.com/api/oauth.v2.access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.SLACK_CLIENT_ID,
+        client_secret: process.env.SLACK_CLIENT_SECRET,
+        code: code,
+        redirect_uri: `https://memento-ruddy.vercel.app/api/slack-oauth`,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!data.ok) {
+      throw new Error(`Slack OAuth error: ${data.error}`);
+    }
+
+    // Créer le client Supabase avec service role
+    const supabase = createClient(
+      process.env.VITE_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    // Vérifier si une source existe déjà pour cette famille
+    const { data: existingSource } = await supabase
+      .from('external_data_sources')
+      .select('*')
+      .eq('family_id', family_id)
+      .eq('source_type', 'slack')
+      .single();
+
+    if (existingSource) {
+      // Mettre à jour la source existante
+      await supabase
+        .from('external_data_sources')
+        .update({
+          config: {
+            ...existingSource.config,
+            team_id: data.team.id,
+            bot_token: data.access_token,
+            team_name: data.team.name,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingSource.id);
+    } else {
+      // Créer une nouvelle source
+      await supabase
+        .from('external_data_sources')
+        .insert({
+          family_id: family_id,
+          source_type: 'slack',
+          name: `Slack - ${data.team.name}`,
+          config: {
+            team_id: data.team.id,
+            bot_token: data.access_token,
+            team_name: data.team.name,
+          },
+          is_active: true,
+          created_by: null,
+        });
+    }
+
+    // Rediriger vers l'app avec un message de succès
+    return res.redirect(`https://memento-ruddy.vercel.app/?slack_connected=true&family_id=${family_id}`);
+  } catch (error) {
+    console.error('OAuth error:', error);
+    return res.status(500).send('Erreur OAuth: ' + error.message);
+  }
 }
