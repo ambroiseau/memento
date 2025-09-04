@@ -1,14 +1,25 @@
 export default async function handler(req, res) {
-  const { code, state } = req.query;
+  // Parse les paramètres de l'URL
+  const url = new URL(req.url, `https://${req.headers.host}`);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
 
-  console.log('OAuth request received:', { code, state, query: req.query });
+  console.log('OAuth request received:', { 
+    code, 
+    state, 
+    url: req.url,
+    searchParams: Object.fromEntries(url.searchParams)
+  });
 
   if (!code) {
     return res.status(400).send('Code OAuth manquant');
   }
 
   if (!state) {
-    console.log('State parameter missing:', req.query);
+    console.log('State parameter missing:', { 
+      url: req.url, 
+      searchParams: Object.fromEntries(url.searchParams) 
+    });
     return res.status(400).send('Family ID manquant');
   }
 
