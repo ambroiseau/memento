@@ -9,6 +9,8 @@ export default async function handler(req, res) {
     state,
     url: req.url,
     searchParams: Object.fromEntries(url.searchParams),
+    method: req.method,
+    headers: req.headers,
   });
 
   if (!code) {
