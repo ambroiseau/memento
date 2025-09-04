@@ -30,6 +30,8 @@ export default function App() {
 
     // Check if we're on special routes
     const path = window.location.pathname;
+    const urlParams = new URLSearchParams(window.location.search);
+    
     if (path === '/auth/callback') {
       setIsAuthCallback(true);
       return;
@@ -37,6 +39,13 @@ export default function App() {
     if (path === '/success') {
       setIsSlackOAuthSuccess(true);
       return;
+    }
+    
+    // Gérer le retour de l'OAuth Slack
+    if (urlParams.get('slack_connected') === 'true') {
+      // Afficher un message de succès et recharger les données
+      console.log('Slack connected successfully!');
+      // Optionnel: afficher une notification toast
     }
 
     const checkSession = async () => {

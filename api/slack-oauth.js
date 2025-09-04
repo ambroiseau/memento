@@ -1,8 +1,12 @@
 export default async function handler(req, res) {
-  const { code } = req.query;
+  const { code, family_id } = req.query;
 
   if (!code) {
     return res.status(400).send('Code OAuth manquant');
+  }
+
+  if (!family_id) {
+    return res.status(400).send('Family ID manquant');
   }
 
   // Échange du code contre un access_token
@@ -42,15 +46,15 @@ export default async function handler(req, res) {
 
     if (existingSources.length > 0) {
       // Mettre à jour la source existante
-              const updateResponse = await fetch(
-          `${process.env.VITE_SUPABASE_URL}/rest/v1/external_data_sources?id=eq.${existingSources[0].id}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: process.env.VITE_SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
-            },
+      const updateResponse = await fetch(
+        `${process.env.VITE_SUPABASE_URL}/rest/v1/external_data_sources?id=eq.${existingSources[0].id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: process.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+          },
           body: JSON.stringify({
             config: {
               ...existingSources[0].config,
@@ -69,17 +73,17 @@ export default async function handler(req, res) {
       }
     } else {
       // Créer une nouvelle source (sans family_id pour l'instant)
-              const createResponse = await fetch(
-          `${process.env.VITE_SUPABASE_URL}/rest/v1/external_data_sources`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: process.env.VITE_SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
-            },
+      const createResponse = await fetch(
+        `${process.env.VITE_SUPABASE_URL}/rest/v1/external_data_sources`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: process.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+          },
           body: JSON.stringify({
-            family_id: null, // Sera lié plus tard quand l'utilisateur configurera
+            family_id: family_id, // Lié à la famille qui a initié l'OAuth
             source_type: 'slack',
             name: `Slack - ${data.team.name}`,
             config: {
@@ -87,7 +91,7 @@ export default async function handler(req, res) {
               bot_token: data.access_token,
               team_name: data.team.name,
             },
-            is_active: false, // Inactif jusqu'à configuration
+            is_active: true, // Actif immédiatement
             created_by: null, // Sera mis à jour lors de la configuration
           }),
         }
@@ -103,5 +107,6 @@ export default async function handler(req, res) {
     console.error('Error storing token:', error);
   }
 
-  return res.redirect('/success'); // redirige vers une page frontend de ton Vite
+  // Rediriger vers les paramètres avec un message de succès
+  return res.redirect(`/?slack_connected=true&family_id=${family_id}`);
 }
