@@ -13,6 +13,15 @@ serve(async req => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Vérifier l'autorisation pour toutes les requêtes
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ error: 'Missing authorization header' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     // Gérer les paramètres GET (OAuth callback)
     const url = new URL(req.url);
@@ -66,11 +75,10 @@ serve(async req => {
       await supabase
         .from('external_data_sources')
         .update({
+          name: `Slack - ${data.team.name}`,
           config: {
             ...existingSource.config,
-            team_id: data.team.id,
             bot_token: data.access_token,
-            team_name: data.team.name,
           },
           updated_at: new Date().toISOString(),
         })
@@ -82,9 +90,7 @@ serve(async req => {
         source_type: 'slack',
         name: `Slack - ${data.team.name}`,
         config: {
-          team_id: data.team.id,
           bot_token: data.access_token,
-          team_name: data.team.name,
         },
         is_active: true,
         created_by: null,
