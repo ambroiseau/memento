@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../utils/supabase/client';
 import { externalDataApi } from '../../utils/external-data-api';
+import { supabase } from '../../utils/supabase/client';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 
@@ -172,8 +172,10 @@ export function SimpleExternalDataSources({
         }
 
         // Test real connection via API
-        const result = await externalDataApi.testSlackConnection(config.channelId);
-        
+        const result = await externalDataApi.testSlackConnection(
+          config.channelId
+        );
+
         if (result.success) {
           setTestResult('success');
           setTestMessage(
@@ -213,8 +215,10 @@ export function SimpleExternalDataSources({
     try {
       if (currentSourceType === 'slack') {
         // Pour Slack, on met à jour la source existante (créée par OAuth) avec le channel_id
-        const existingSlackSource = existingSources.find(s => s.source_type === 'slack');
-        
+        const existingSlackSource = existingSources.find(
+          s => s.source_type === 'slack'
+        );
+
         if (existingSlackSource) {
           // Mettre à jour la source existante
           const { data, error } = await supabase
@@ -223,7 +227,7 @@ export function SimpleExternalDataSources({
               name: config.sourceName,
               config: {
                 ...existingSlackSource.config,
-                channel_id: config.channelId
+                channel_id: config.channelId,
               },
               created_by: userId,
             })
@@ -619,7 +623,9 @@ export function SimpleExternalDataSources({
                     onClick={() => {
                       console.log('Family ID:', familyId);
                       if (!familyId) {
-                        alert('Family ID manquant - impossible de connecter Slack');
+                        alert(
+                          'Family ID manquant - impossible de connecter Slack'
+                        );
                         return;
                       }
                       const oauthUrl = `https://slack.com/oauth/v2/authorize?client_id=486639851300.9450150412581&scope=files:read,channels:read,users:read,chat:write&redirect_uri=${encodeURIComponent(`https://memento-ruddy.vercel.app/api/slack-oauth`)}&state=${familyId}`;
@@ -634,7 +640,7 @@ export function SimpleExternalDataSources({
                     Cliquez pour autoriser l'accès à votre workspace Slack
                   </p>
                 </div>
-                
+
                 <label className="block text-sm font-medium mb-2">
                   Channel ID
                 </label>
