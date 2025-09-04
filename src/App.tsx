@@ -7,6 +7,7 @@ import { ImageGallery } from './components/ImageGallery';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProfileSetup } from './components/ProfileSetup';
 import { SettingsScreen } from './components/SettingsScreen';
+import { SlackOAuthSuccess } from './components/SlackOAuthSuccess';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { useAppActions } from './hooks/useAppActions';
 import { useAppState } from './hooks/useAppState';
@@ -17,6 +18,7 @@ export default function App() {
   const state = useAppState();
   const actions = useAppActions(state);
   const [isAuthCallback, setIsAuthCallback] = useState(false);
+  const [isSlackOAuthSuccess, setIsSlackOAuthSuccess] = useState(false);
 
   const { isLoading, setIsLoading, setUser, setAccessToken, setCurrentScreen } =
     state;
@@ -26,10 +28,14 @@ export default function App() {
     // Initialize PWA features
     initializePWA().catch(console.error);
 
-    // Check if we're on the auth callback route
+    // Check if we're on special routes
     const path = window.location.pathname;
     if (path === '/auth/callback') {
       setIsAuthCallback(true);
+      return;
+    }
+    if (path === '/success') {
+      setIsSlackOAuthSuccess(true);
       return;
     }
 
@@ -59,6 +65,11 @@ export default function App() {
   // Show auth callback screen if we're on that route
   if (isAuthCallback) {
     return <AuthCallback />;
+  }
+
+  // Show Slack OAuth success screen if we're on that route
+  if (isSlackOAuthSuccess) {
+    return <SlackOAuthSuccess />;
   }
 
   if (isLoading) {

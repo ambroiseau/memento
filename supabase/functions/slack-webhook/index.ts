@@ -233,15 +233,36 @@ async function processSlackFile(
 
     console.log('Found family:', family.id);
 
-    // 2. Récupérer les informations de l'utilisateur Slack
-    const userInfo = await getSlackUserInfo(slackBotToken, file.user);
-    console.log('User info retrieved:', userInfo);
+    // 2. Déterminer l'ID utilisateur à interroger (logique de fallback robuste)
+    let userId = file.user || event?.user;
+    console.log('Initial user ID from file.user:', file.user);
+    console.log('Initial user ID from event.user:', event?.user);
+    console.log('Selected user ID:', userId);
 
-    // 3. Télécharger le fichier depuis Slack
+    // Si aucun ID utilisateur trouvé, essayer de récupérer via files.info
+    if (!userId) {
+      console.log('No user ID found, trying files.info...');
+      const slackFileInfo = await getSlackFileInfo(slackBotToken, file.id);
+      if (slackFileInfo && slackFileInfo.user) {
+        userId = slackFileInfo.user;
+        console.log('User ID from files.info:', userId);
+      }
+    }
+
+    // 3. Récupérer les informations de l'utilisateur Slack
+    let userInfo = null;
+    if (userId) {
+      userInfo = await getSlackUserInfo(slackBotToken, userId);
+      console.log('User info retrieved for', userId, ':', userInfo);
+    } else {
+      console.log('❌ No user ID available, skipping user info retrieval');
+    }
+
+    // 4. Télécharger le fichier depuis Slack
     const fileInfo = await downloadSlackFile(slackBotToken, file);
     console.log('File downloaded, size:', fileInfo.buffer.byteLength);
 
-    // 4. Upload vers Supabase Storage
+    // 5. Upload vers Supabase Storage
     const fileExtension = getFileExtension(file.name, file.mimetype);
     const storagePath = `slack/${file.id}${fileExtension}`;
 
@@ -258,7 +279,7 @@ async function processSlackFile(
 
     console.log('Upload successful:', storagePath);
 
-    // 5. Créer le post dans la base de données
+    // 6. Créer le post dans la base de données
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .insert({
@@ -273,11 +294,11 @@ async function processSlackFile(
           file_type: file.mimetype,
           file_size: file.size,
           slack_user: userInfo
-            ? `${userInfo.real_name || userInfo.display_name || userInfo.name || 'Utilisateur Slack'}`
-            : file.username || 'Utilisateur Slack',
+            ? `${userInfo.real_name || userInfo.display_name || userInfo.name || 'Slack User'}`
+            : file.username || 'Slack User',
           slack_user_info: userInfo
             ? {
-                user_id: file.user,
+                user_id: userId, // Utiliser l'ID utilisateur final (peut venir de files.info)
                 real_name: userInfo.real_name,
                 display_name: userInfo.display_name,
                 name: userInfo.name,
@@ -285,7 +306,7 @@ async function processSlackFile(
                 image: userInfo.profile?.image_192,
               }
             : {
-                user_id: file.user,
+                user_id: userId || file.user, // Fallback sur l'ID final ou file.user
                 username: file.username,
               },
           timestamp: new Date().toISOString(),
@@ -300,7 +321,7 @@ async function processSlackFile(
 
     console.log('Post created:', postData.id);
 
-    // 6. Créer l'entrée dans post_images
+    // 7. Créer l'entrée dans post_images
     const { data: imageData, error: imageError } = await supabase
       .from('post_images')
       .insert({
@@ -821,6 +842,39 @@ async function testSlackConnection(
 /**
  * Récupère les informations d'un utilisateur Slack via l'API
  */
+async function getSlackFileInfo(
+  botToken: string,
+  fileId: string
+): Promise<any> {
+  try {
+    console.log('Fetching file info for:', fileId);
+
+    const response = await fetch('https://slack.com/api/files.info', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${botToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file: fileId,
+      }),
+    });
+
+    const result = await response.json();
+    console.log('Slack file info response:', result);
+
+    if (!result.ok) {
+      console.error('Failed to get file info:', result.error);
+      return null;
+    }
+
+    return result.file;
+  } catch (error) {
+    console.error('Error fetching file info:', error);
+    return null;
+  }
+}
+
 async function getSlackUserInfo(
   botToken: string,
   userId: string
@@ -844,6 +898,9 @@ async function getSlackUserInfo(
 
     if (!result.ok) {
       console.error('Failed to get user info:', result.error);
+      if (result.error === 'missing_scope') {
+        console.error('❌ Bot missing users:read permission!');
+      }
       return null;
     }
 
