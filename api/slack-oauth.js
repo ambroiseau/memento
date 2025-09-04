@@ -13,6 +13,13 @@ export default async function handler(req, res) {
     headers: req.headers,
   });
 
+  // Debug: vérifier les variables d'environnement
+  console.log('Environment variables check:', {
+    hasSupabaseUrl: !!process.env.VITE_SUPABASE_URL,
+    hasSupabaseAnonKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+
   if (!code) {
     return res.status(400).send('Code OAuth manquant');
   }
@@ -70,8 +77,8 @@ export default async function handler(req, res) {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey: process.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
             config: {
@@ -97,8 +104,8 @@ export default async function handler(req, res) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey: process.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({
             family_id: family_id, // Lié à la famille qui a initié l'OAuth

@@ -37,6 +37,13 @@ export default defineConfig({
     headers: {
       'X-Content-Type-Options': 'nosniff',
     },
+    proxy: {
+      '/api': {
+        target: 'https://memento-ruddy.vercel.app',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
   },
   preview: {
     port: 3000,
