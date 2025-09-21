@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, pushGraphicsState, popGraphicsState, moveTo, lineTo, closePath, clip, endPath } from 'pdf-lib';
+import { readFile } from 'fs/promises';
 import { config } from '../config.js';
 import { RenderRequest, RenderResponse } from '../types.js';
 
@@ -167,7 +168,7 @@ export async function renderHandler(
 
     // 5. Generate PDF using pdf-lib
     console.log('Generating PDF with pdf-lib...');
-    const pdfBuffer = await generatePDF(
+    const { buffer: pdfBuffer, pageCount } = await generatePDF(
       postsWithSignedUrls,
       family,
       start,
@@ -200,7 +201,6 @@ export async function renderHandler(
       .getPublicUrl(fileName);
 
     const pdfUrl = urlData.publicUrl;
-    const pageCount = postsWithSignedUrls.length + 2; // +2 for cover and footer
 
     // 9. Update job status to succeeded
     await updateJobStatus(job.id, 'succeeded', undefined, pdfUrl, pageCount);
@@ -238,13 +238,23 @@ async function generatePDF(
   family: any,
   start: string,
   end: string
-): Promise<Buffer> {
+): Promise<{ buffer: Buffer; pageCount: number }> {
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
 
-  // Embed the standard font
+  // Embed fonts (try custom logo font for cover title if provided)
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  let logoFont = boldFont;
+  const logoFontPath = process.env.MEMENTO_LOGO_FONT_PATH || process.env.LOGO_FONT_PATH;
+  if (logoFontPath) {
+    try {
+      const bytes = await readFile(logoFontPath);
+      logoFont = await pdfDoc.embedFont(bytes);
+    } catch (e) {
+      console.warn('Could not load logo font, falling back to HelveticaBold:', e);
+    }
+  }
 
   // A5 page size (420 x 595 points)
   const pageWidth = 420;
@@ -255,46 +265,37 @@ async function generatePDF(
 
   // Add cover page
   const coverPage = pdfDoc.addPage([pageWidth, pageHeight]);
-  const coverText = `${family.name} - Album Photos`;
-
-  // Format the date range nicely
+  // Title: month + year (from start date), uppercase, logo typography if available
   const startDate = new Date(start);
-  const endDate = new Date(end);
-  const startMonth = startDate.toLocaleDateString('fr-FR', {
-    month: 'long',
-    year: 'numeric',
-  });
-  const endMonth = endDate.toLocaleDateString('fr-FR', {
-    month: 'long',
-    year: 'numeric',
-  });
+  const monthYear = startDate
+    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    .toUpperCase();
+  const coverTitleSize = 30;
+  const coverSubtitleSize = 18;
+  const titleWidth = logoFont.widthOfTextAtSize(monthYear, coverTitleSize);
+  const familyName = family.name || '';
+  const subtitleWidth = font.widthOfTextAtSize(familyName, coverSubtitleSize);
 
-  // If same month, show just one month
-  const coverSubtext =
-    startMonth === endMonth ? startMonth : `${startMonth} - ${endMonth}`;
-
-  // Center the title
-  const titleWidth = boldFont.widthOfTextAtSize(coverText, 24);
-  const subtitleWidth = font.widthOfTextAtSize(coverSubtext, 16);
-
-  coverPage.drawText(coverText, {
+  coverPage.drawText(monthYear, {
     x: (pageWidth - titleWidth) / 2,
-    y: pageHeight - 200,
-    size: 24,
-    font: boldFont,
+    y: pageHeight - 220,
+    size: coverTitleSize,
+    font: logoFont,
     color: rgb(0, 0, 0),
   });
 
-  coverPage.drawText(coverSubtext, {
+  coverPage.drawText(familyName, {
     x: (pageWidth - subtitleWidth) / 2,
-    y: pageHeight - 240,
-    size: 16,
+    y: pageHeight - 260,
+    size: coverSubtitleSize,
     font: font,
-    color: rgb(0.5, 0.5, 0.5),
+    color: rgb(0.4, 0.4, 0.4),
   });
 
   // Add pages for each post
   for (const post of posts) {
+    /* Legacy mixed layout disabled in favor of rules-driven pages */
+    if (false) {
     const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
     // Post date
@@ -487,6 +488,41 @@ async function generatePDF(
         }
       }
     }
+    }
+  }
+
+  /* New image-only pages per rules (1–4 photos per page) */
+  for (const post of posts) {
+    if (!post.images || post.images.length === 0) continue;
+
+    // Embed images first
+    const embedded: Array<{ img: any | null; width: number; height: number; alt?: string }> = [];
+    for (const image of post.images) {
+      try {
+        if (!image.url) throw new Error('No image URL available');
+        let buf: ArrayBuffer | Buffer;
+        if (typeof image.url === 'string' && image.url.startsWith('data:image')) {
+          const base64Data = image.url.split(',')[1];
+          buf = Buffer.from(base64Data, 'base64');
+        } else {
+          const res = await fetch(image.url);
+          if (!res.ok) throw new Error(`Failed to fetch image: ${res.statusText}`);
+          buf = await res.arrayBuffer();
+        }
+        let img: any;
+        try { img = await pdfDoc.embedPng(buf); } catch { img = await pdfDoc.embedJpg(buf); }
+        embedded.push({ img, width: img.width, height: img.height, alt: image.alt_text });
+      } catch (e) {
+        console.error('Failed to embed image, adding placeholder slot:', e);
+        embedded.push({ img: null, width: 1000, height: 1000, alt: image.alt_text });
+      }
+    }
+
+    for (let i = 0; i < embedded.length; i += 4) {
+      const group = embedded.slice(i, i + 4);
+      const page = pdfDoc.addPage([pageWidth, pageHeight]);
+      drawImageGroupByRules(page, group, pageWidth, pageHeight);
+    }
   }
 
   // Add footer page
@@ -504,7 +540,7 @@ async function generatePDF(
 
   // Serialize the PDF to bytes
   const pdfBytes = await pdfDoc.save();
-  return Buffer.from(pdfBytes);
+  return { buffer: Buffer.from(pdfBytes), pageCount: pdfDoc.getPageCount() };
 }
 
 // Helper function to wrap text
@@ -539,6 +575,240 @@ function wrapText(
   }
 
   return lines;
+}
+
+// -------- Image layout engine (1–4 per page) --------
+
+// Global layout constants (points)
+const PAGE_PADDING = 16; // outer margin around image content
+const GUTTER = 8; // spacing between images
+
+function isPortrait(w: number, h: number) {
+  return h > w;
+}
+
+function fitRect(
+  imgW: number,
+  imgH: number,
+  frameX: number,
+  frameY: number,
+  frameW: number,
+  frameH: number
+) {
+  const scale = Math.min(frameW / imgW, frameH / imgH);
+  const drawW = imgW * scale;
+  const drawH = imgH * scale;
+  const x = frameX + (frameW - drawW) / 2;
+  const y = frameY + (frameH - drawH) / 2;
+  return { x, y, width: drawW, height: drawH };
+}
+
+// Like CSS object-fit: cover (center-crop)
+function coverRect(
+  imgW: number,
+  imgH: number,
+  frameX: number,
+  frameY: number,
+  frameW: number,
+  frameH: number
+) {
+  const scale = Math.max(frameW / imgW, frameH / imgH);
+  const drawW = imgW * scale;
+  const drawH = imgH * scale;
+  const x = frameX + (frameW - drawW) / 2;
+  const y = frameY + (frameH - drawH) / 2;
+  return { x, y, width: drawW, height: drawH };
+}
+
+function drawPlaceholder(
+  page: any,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  _alt?: string
+) {
+  page.drawRectangle({ x, y, width: w, height: h, borderColor: rgb(0.85, 0.85, 0.85), borderWidth: 1, color: rgb(0.96, 0.96, 0.96) });
+}
+
+function drawImageCoverClipped(
+  page: any,
+  img: any,
+  frameX: number,
+  frameY: number,
+  frameW: number,
+  frameH: number,
+  imgW: number,
+  imgH: number
+) {
+  // Compute cover placement
+  const box = coverRect(imgW, imgH, frameX, frameY, frameW, frameH);
+  // Define clipping rect = frame
+  page.pushOperators(
+    pushGraphicsState(),
+    moveTo(frameX, frameY),
+    lineTo(frameX, frameY + frameH),
+    lineTo(frameX + frameW, frameY + frameH),
+    lineTo(frameX + frameW, frameY),
+    closePath(),
+    clip(),
+    endPath()
+  );
+  page.drawImage(img, { x: box.x, y: box.y, width: box.width, height: box.height });
+  page.pushOperators(popGraphicsState());
+}
+
+function drawImageGroupByRules(
+  page: any,
+  group: Array<{ img: any | null; width: number; height: number; alt?: string }>,
+  pageW: number,
+  pageH: number
+) {
+  const n = group.length;
+  if (n === 0) return;
+
+  // 1 photo: apply orientation-based paddings and crop to fill
+  if (n === 1) {
+    const g = group[0];
+    const portrait = isPortrait(g.width, g.height);
+    // Paddings in points (corrected)
+    // Landscape: 50 left/right, 172 top/bottom
+    // Portrait: 64 left/right, 100 top/bottom
+    const padX = portrait ? 64 : 50;
+    const padY = portrait ? 100 : 172;
+    const f = { x: padX, y: padY, w: pageW - 2 * padX, h: pageH - 2 * padY };
+    if (g.img) {
+      drawImageCoverClipped(page, g.img, f.x, f.y, f.w, f.h, g.width, g.height);
+    } else {
+      drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
+    }
+    return;
+  }
+
+  // 2 photos
+  if (n === 2) {
+    const [a, b] = group;
+    const aPortrait = isPortrait(a.width, a.height);
+    const bPortrait = isPortrait(b.width, b.height);
+    // Mixed or both landscape -> vertical stack; both portrait -> side-by-side
+    const verticalStack = (aPortrait && !bPortrait) || (!aPortrait && bPortrait) || (!aPortrait && !bPortrait);
+    // Use inner content area with padding and gutter
+    // Compute paddings per case
+    const bothLandscape = !aPortrait && !bPortrait;
+    const bothPortrait = aPortrait && bPortrait;
+    const padX = bothPortrait ? 40 : 64; // side-by-side (portrait) -> 40, stacked/mixed -> 64
+    const padY = bothPortrait ? 172 : 100; // side-by-side (portrait) -> 172, stacked/mixed/landscape -> 100
+    const innerX = padX;
+    const innerY = padY;
+    const innerW = pageW - 2 * padX;
+    const innerH = pageH - 2 * padY;
+    if (verticalStack) {
+      const cellH = (innerH - GUTTER) / 2;
+      const frames = [
+        { x: innerX, y: innerY + cellH + GUTTER, w: innerW, h: cellH },
+        { x: innerX, y: innerY, w: innerW, h: cellH },
+      ];
+      [a, b].forEach((g, i) => {
+        const f = frames[i];
+        if (g.img) {
+          drawImageCoverClipped(page, g.img, f.x, f.y, f.w, f.h, g.width, g.height);
+        } else {
+          drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
+        }
+      });
+    } else {
+      const cellW = (innerW - GUTTER) / 2;
+      const frames = [
+        { x: innerX, y: innerY, w: cellW, h: innerH },
+        { x: innerX + cellW + GUTTER, y: innerY, w: cellW, h: innerH },
+      ];
+      [a, b].forEach((g, i) => {
+        const f = frames[i];
+        if (g.img) {
+          drawImageCoverClipped(page, g.img, f.x, f.y, f.w, f.h, g.width, g.height);
+        } else {
+          drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
+        }
+      });
+    }
+    return;
+  }
+
+  // 3 photos: left tall image spanning full height, two stacked on right inside a centered square container
+  if (n === 3) {
+    // Choose a portrait as the tall one if available, else the first
+    let leftIndex = group.findIndex((g) => isPortrait(g.width, g.height));
+    if (leftIndex === -1) leftIndex = 0;
+    const left = group[leftIndex];
+    const others = group.filter((_, i) => i !== leftIndex);
+
+    // Outer content area with side padding = 40px
+    const padX = 40;
+    const innerX = padX;
+    const innerY = PAGE_PADDING;
+    const innerW = pageW - 2 * padX;
+    const innerH = pageH - 2 * PAGE_PADDING;
+
+    // Square container centered within inner content
+    const S = Math.min(innerW, innerH);
+    const cx = innerX + (innerW - S) / 2;
+    const cy = innerY + (innerH - S) / 2;
+
+    // Internal layout within the square container with gutters
+    const colW = (S - GUTTER) / 2; // right squares will be colW x colW
+    const leftF = { x: cx, y: cy, w: colW, h: S };
+    const rightX = cx + colW + GUTTER;
+    const topF = { x: rightX, y: cy + colW + GUTTER, w: colW, h: colW };
+    const botF = { x: rightX, y: cy, w: colW, h: colW };
+
+    if (left.img) {
+      drawImageCoverClipped(page, left.img, leftF.x, leftF.y, leftF.w, leftF.h, left.width, left.height);
+    } else {
+      drawPlaceholder(page, leftF.x, leftF.y, leftF.w, leftF.h, left.alt);
+    }
+
+    [others[0], others[1]].forEach((g, i) => {
+      const f = i === 0 ? topF : botF;
+      if (!g) return;
+      if (g.img) {
+        drawImageCoverClipped(page, g.img, f.x, f.y, f.w, f.h, g.width, g.height);
+      } else {
+        drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
+      }
+    });
+    return;
+  }
+
+  // 4 photos: 2x2 square grid, letterbox to preserve ratios
+  if (n === 4) {
+    // Work in inner content area with side padding = 40px and gutter
+    const padX = 40;
+    const innerX = padX;
+    const innerY = PAGE_PADDING;
+    const innerW = pageW - 2 * padX;
+    const innerH = pageH - 2 * PAGE_PADDING;
+    const s = Math.min((innerW - GUTTER) / 2, (innerH - GUTTER) / 2); // square size
+    const gridW = 2 * s + GUTTER;
+    const gridH = 2 * s + GUTTER;
+    const ox = innerX + (innerW - gridW) / 2;
+    const oy = innerY + (innerH - gridH) / 2;
+    const frames = [
+      { x: ox + 0 * (s + GUTTER), y: oy + 1 * (s + GUTTER), w: s, h: s },
+      { x: ox + 1 * (s + GUTTER), y: oy + 1 * (s + GUTTER), w: s, h: s },
+      { x: ox + 0 * (s + GUTTER), y: oy + 0 * (s + GUTTER), w: s, h: s },
+      { x: ox + 1 * (s + GUTTER), y: oy + 0 * (s + GUTTER), w: s, h: s },
+    ];
+    group.forEach((g, i) => {
+      const f = frames[i];
+      if (g.img) {
+        // Center-crop into squares using clipping
+        drawImageCoverClipped(page, g.img, f.x, f.y, f.w, f.h, g.width, g.height);
+      } else {
+        drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
+      }
+    });
+    return;
+  }
 }
 
 async function updateJobStatus(
