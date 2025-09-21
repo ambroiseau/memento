@@ -246,13 +246,45 @@ async function generatePDF(
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   let logoFont = boldFont;
-  const logoFontPath = process.env.MEMENTO_LOGO_FONT_PATH || process.env.LOGO_FONT_PATH;
-  if (logoFontPath) {
+  let captionFont = font;
+  const candidates: string[] = [];
+  if (process.env.MEMENTO_LOGO_FONT_PATH) candidates.push(process.env.MEMENTO_LOGO_FONT_PATH);
+  if (process.env.LOGO_FONT_PATH) candidates.push(process.env.LOGO_FONT_PATH!);
+  // Fallback to repo font path when running from renderer/
+  candidates.push('../assets/fonts/Caprasimo-Regular.ttf');
+  // Try to register fontkit if available for custom TTF/OTF embedding
+  try {
+    // @ts-ignore - dynamic import
+    const fk = await import('@pdf-lib/fontkit');
+    // @ts-ignore
+    pdfDoc.registerFontkit(fk.default || fk);
+  } catch (e) {
+    console.warn('Optional @pdf-lib/fontkit not found; custom font embedding may fail.');
+  }
+  for (const p of candidates) {
     try {
-      const bytes = await readFile(logoFontPath);
+      const bytes = await readFile(p);
       logoFont = await pdfDoc.embedFont(bytes);
+      console.log(`✅ Loaded custom logo font from: ${p}`);
+      break;
     } catch (e) {
-      console.warn('Could not load logo font, falling back to HelveticaBold:', e);
+      console.warn(`⚠️ Could not load logo font from ${p}`, e);
+    }
+  }
+
+  // Try load caption font (Playwrite) if present
+  const captionCandidates: string[] = [];
+  if (process.env.MEMENTO_CAPTION_FONT_PATH) captionCandidates.push(process.env.MEMENTO_CAPTION_FONT_PATH);
+  // repo default path
+  captionCandidates.push('../assets/fonts/PlaywriteITTrad-VariableFont_wght.ttf');
+  for (const p of captionCandidates) {
+    try {
+      const bytes = await readFile(p);
+      captionFont = await pdfDoc.embedFont(bytes);
+      console.log(`✅ Loaded caption font from: ${p}`);
+      break;
+    } catch (e) {
+      console.warn(`⚠️ Could not load caption font from ${p}`, e);
     }
   }
 
@@ -521,7 +553,28 @@ async function generatePDF(
     for (let i = 0; i < embedded.length; i += 4) {
       const group = embedded.slice(i, i + 4);
       const page = pdfDoc.addPage([pageWidth, pageHeight]);
-      drawImageGroupByRules(page, group, pageWidth, pageHeight);
+      const author = getAuthorName(post);
+      const dateText = new Date(post.created_at).toLocaleDateString('fr-FR', {
+        day: '2-digit', month: 'long'
+      });
+      const rawCaption =
+        typeof post.content_text === 'string' && post.content_text.trim().length > 0
+          ? post.content_text.trim()
+          : (typeof post.content === 'string' && post.content.trim().length > 0
+              ? post.content.trim()
+              : undefined);
+      let captionMain: string | undefined = undefined;
+      if (rawCaption) {
+        captionMain = rawCaption;
+      } else {
+        // Fallback: try image alts; else no main line
+        const alts = (post.images || [])
+          .map((im: any) => (typeof im.alt_text === 'string' ? im.alt_text.trim() : ''))
+          .filter((s: string) => s.length > 0);
+        if (alts.length > 0) captionMain = alts.join(' • ');
+      }
+      const captionMeta = `${author} — ${dateText}`;
+      drawImageGroupByRules(page, group, pageWidth, pageHeight, captionMain, font, captionMeta);
     }
   }
 
@@ -582,6 +635,7 @@ function wrapText(
 // Global layout constants (points)
 const PAGE_PADDING = 16; // outer margin around image content
 const GUTTER = 8; // spacing between images
+const CAPTION_SPACE = 64; // reserved space previously used; captions now overlay bottom margin without shifting images
 
 function isPortrait(w: number, h: number) {
   return h > w;
@@ -662,10 +716,17 @@ function drawImageGroupByRules(
   page: any,
   group: Array<{ img: any | null; width: number; height: number; alt?: string }>,
   pageW: number,
-  pageH: number
+  pageH: number,
+  caption?: string,
+  fontRef?: any,
+  captionMeta?: string
 ) {
   const n = group.length;
   if (n === 0) return;
+  const hasCaption = !!(caption && caption.trim());
+  const hasMeta = !!(captionMeta && captionMeta.trim());
+  let minFrameY: number | null = null;
+  let leftMostX: number | null = null;
 
   // 1 photo: apply orientation-based paddings and crop to fill
   if (n === 1) {
@@ -681,6 +742,13 @@ function drawImageGroupByRules(
       drawImageCoverClipped(page, g.img, f.x, f.y, f.w, f.h, g.width, g.height);
     } else {
       drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
+    }
+    minFrameY = f.y;
+    leftMostX = f.x;
+    if (fontRef && (hasCaption || hasMeta)) {
+      let topY = Math.max(8, minFrameY - 10);
+      if (hasCaption) topY = drawCaptionLeftAt(page, caption!.trim(), fontRef, pageW, leftMostX!, topY, rgb(0, 0, 0));
+      if (hasMeta) drawCaptionLeftAt(page, captionMeta!.trim(), fontRef, pageW, leftMostX!, topY, rgb(0.6, 0.6, 0.6));
     }
     return;
   }
@@ -716,6 +784,8 @@ function drawImageGroupByRules(
           drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
         }
       });
+      minFrameY = frames[1].y;
+      leftMostX = frames[1].x;
     } else {
       const cellW = (innerW - GUTTER) / 2;
       const frames = [
@@ -730,6 +800,13 @@ function drawImageGroupByRules(
           drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
         }
       });
+      minFrameY = frames[0].y;
+      leftMostX = frames[0].x;
+    }
+    if (fontRef && minFrameY !== null && leftMostX !== null && (hasCaption || hasMeta)) {
+      let topY = Math.max(8, minFrameY - 10);
+      if (hasCaption) topY = drawCaptionLeftAt(page, caption!.trim(), fontRef, pageW, leftMostX, topY, rgb(0, 0, 0));
+      if (hasMeta) drawCaptionLeftAt(page, captionMeta!.trim(), fontRef, pageW, leftMostX, topY, rgb(0.6, 0.6, 0.6));
     }
     return;
   }
@@ -776,6 +853,13 @@ function drawImageGroupByRules(
         drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
       }
     });
+    minFrameY = Math.min(leftF.y, botF.y);
+    leftMostX = leftF.x;
+    if (fontRef && minFrameY !== null && leftMostX !== null && (hasCaption || hasMeta)) {
+      let topY = Math.max(8, minFrameY - 10);
+      if (hasCaption) topY = drawCaptionLeftAt(page, caption!.trim(), fontRef, pageW, leftMostX, topY, rgb(0, 0, 0));
+      if (hasMeta) drawCaptionLeftAt(page, captionMeta!.trim(), fontRef, pageW, leftMostX, topY, rgb(0.6, 0.6, 0.6));
+    }
     return;
   }
 
@@ -807,8 +891,53 @@ function drawImageGroupByRules(
         drawPlaceholder(page, f.x, f.y, f.w, f.h, g.alt);
       }
     });
+    const bottomRowY = Math.min(frames[2].y, frames[3].y);
+    minFrameY = bottomRowY;
+    leftMostX = frames[2].x;
+    if (fontRef && minFrameY !== null && leftMostX !== null && (hasCaption || hasMeta)) {
+      let topY = Math.max(8, minFrameY - 10);
+      if (hasCaption) topY = drawCaptionLeftAt(page, caption!.trim(), fontRef, pageW, leftMostX, topY, rgb(0, 0, 0));
+      if (hasMeta) drawCaptionLeftAt(page, captionMeta!.trim(), fontRef, pageW, leftMostX, topY, rgb(0.6, 0.6, 0.6));
+    }
     return;
   }
+}
+
+function drawCaptionLeftAt(page: any, text: string, font: any, pageW: number, leftX: number, topY: number, color: any) {
+  const fontSize = 9;
+  const lineHeight = 12;
+  const maxWidth = pageW - leftX - 40; // from left edge of leftmost photo to right margin
+  const lines = wrapText(text, font, fontSize, maxWidth);
+  let y = topY; // start near the image, then go downward (reading order)
+  lines.forEach((line) => {
+    page.drawText(line, { x: leftX, y, size: fontSize, font, color });
+    y -= lineHeight;
+  });
+  return y;
+}
+
+function estimateCaptionHeight(text: string, font: any, pageW: number, leftX: number) {
+  const fontSize = 9;
+  const maxWidth = pageW - leftX - 40;
+  const lines = wrapText(text, font, fontSize, maxWidth);
+  const lineHeight = 12;
+  return lines.length * lineHeight;
+}
+
+function getAuthorName(post: any): string {
+  const candidates = [
+    post?.author?.name,
+    post?.profiles?.name,
+    post?.profile?.name,
+    post?.author_name,
+    post?.user_name,
+    post?.username,
+    post?.created_by_name,
+  ];
+  for (const v of candidates) {
+    if (typeof v === 'string' && v.trim().length > 0) return v.trim();
+  }
+  return 'Auteur inconnu';
 }
 
 async function updateJobStatus(

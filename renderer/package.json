@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/supabase-js": "^2.39.0",
     "dotenv": "^17.2.1",
     "fastify": "^4.24.3",
